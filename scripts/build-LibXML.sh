@@ -5,9 +5,10 @@ mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 git clone --depth 1 --branch v2.13.5 https://github.com/GNOME/libxml2.git src
 cd src
 
-# Remove version scripts that reference undefined symbols (lld doesn't support --no-version-script)
-find . -name "*.map" -delete 2>/dev/null || true
-sed -i 's/set_target_properties(LibXml2 PROPERTIES LINK_FLAGS.*//' CMakeLists.txt 2>/dev/null || true
+# Remove version script that references undefined symbols
+rm -f libxml2.syms 2>/dev/null || true
+# Also disable version script in cmake
+sed -i 's/target_link_options(LibXml2 PRIVATE "LINKER:--version-script=.*/# version script disabled for Android/' CMakeLists.txt 2>/dev/null || true
 
 CMAKE_BASE=(
   -DCMAKE_TOOLCHAIN_FILE="$NDK_DIR/build/cmake/android.toolchain.cmake"

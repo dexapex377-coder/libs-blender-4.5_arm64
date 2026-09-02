@@ -7,8 +7,10 @@ git clone --depth 1 --branch release-75-1 https://github.com/unicode-org/icu.git
 TOOLCHAIN="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64"
 TARGET=aarch64-linux-android
 
-# Create LICENSE to avoid install error
+# Create LICENSE files to avoid install errors
 touch src/icu4c/source/LICENSE
+touch src/icu4c/source/../LICENSE
+touch src/LICENSE
 
 # Phase 1: Build host ICU tools
 mkdir -p "$BUILD_DIR/host-build/source"

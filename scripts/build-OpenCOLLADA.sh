@@ -72,6 +72,23 @@ COMMON_FLAGS=(
   -DOPENCOLLADA_BUILD_TESTS=OFF -DOPENCOLLADA_BUILD_TOOLS=OFF
   -DOPENCOLLADA_BUILD_VIEWER=OFF
 )
+# Patch bundled LibXML: wrap wsockcompat.h with #ifdef _WIN32
+cat > /tmp/fix_wsock.py << 'PYEOF'
+import os
+path = "src/Externals/LibXML/include/wsockcompat.h"
+if os.path.exists(path):
+    with open(path, "r") as f:
+        content = f.read()
+    if "#ifdef _WIN32" not in content.split("\n")[8:12]:
+        with open(path, "w") as f:
+            f.write('#ifndef _WIN32\n/* Not Windows - skip wsockcompat */\n#else\n' + content + '\n#endif\n')
+        print("Patched wsockcompat.h")
+    else:
+        print("Already patched")
+else:
+    print("File not found")
+PYEOF
+python3 /tmp/fix_wsock.py
 cmake -B build -DBUILD_SHARED_LIBS=ON "${COMMON_FLAGS[@]}"
 cmake --build build -j$(nproc)
 cmake --install build
