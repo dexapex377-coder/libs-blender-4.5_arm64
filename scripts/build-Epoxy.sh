@@ -9,8 +9,6 @@ TARGET=aarch64-linux-android
 export CC="$TOOLCHAIN/bin/${TARGET}${API_LEVEL}-clang"
 export CXX="$TOOLCHAIN/bin/${TARGET}${API_LEVEL}-clang++"
 
-# Epoxy needs autotools with meson fallback
-# Use meson for cross-compilation
 pip install meson ninja 2>/dev/null || true
 cat > /tmp/epoxy_cross.txt << MESONEOF
 [binaries]
@@ -28,21 +26,19 @@ endian = 'little'
 sys_root = '$TOOLCHAIN/sysroot'
 MESONEOF
 
-# Shared
 meson setup build \
   --cross-file /tmp/epoxy_cross.txt \
   --prefix="$OUTPUT_DIR" \
   --default-library=shared \
-  -Dtests=false -Ddocumentation=false
+  -Dtests=false
 ninja -C build
 ninja -C build install
 
-# Static
 meson setup build-static \
   --cross-file /tmp/epoxy_cross.txt \
   --prefix="$OUTPUT_DIR" \
   --default-library=static \
-  -Dtests=false -Ddocumentation=false
+  -Dtests=false
 ninja -C build-static
 ninja -C build-static install
 

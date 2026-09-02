@@ -43,11 +43,8 @@ $CXX $CXXFLAGS -c opensubdiv/version.cpp -o "$BUILD_DIR/obj/version.o" 2>/dev/nu
 echo "=== Creating static + shared libraries ==="
 mkdir -p "$OUTPUT_DIR/lib" "$OUTPUT_DIR/include/opensubdiv"
 
-# Static
 $AR rcs "$OUTPUT_DIR/lib/libosdCPU.a" "$BUILD_DIR/obj/"*.o
-
-# Shared
-$CXX -shared -o "$OUTPUT_DIR/lib/libosdCPU.so" "$BUILD_DIR/obj/"*.o -lm -lpthread
+$CXX -shared -o "$OUTPUT_DIR/lib/libosdCPU.so" "$BUILD_DIR/obj/"*.o -lm
 
 echo "=== Copying headers ==="
 for dir in osd far hbr sdc vtr bfr; do
@@ -57,5 +54,3 @@ find opensubdiv -maxdepth 1 -name "*.h" -exec cp {} "$OUTPUT_DIR/include/opensub
 
 echo "=== Done ==="
 ls -lh "$OUTPUT_DIR/lib/libosdCPU"*
-echo "Objects: $(ls "$BUILD_DIR/obj/"*.o 2>/dev/null | wc -l)"
-echo "Headers: $(find "$OUTPUT_DIR/include/opensubdiv" -name "*.h" | wc -l)"
