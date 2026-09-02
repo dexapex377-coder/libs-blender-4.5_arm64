@@ -34,6 +34,7 @@ jobs:
           - IMath
           - Brotli
           - FreeType
+          - Potrace
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -48,6 +49,12 @@ jobs:
             rm /tmp/ndk.zip
           fi
           echo "ANDROID_NDK_HOME=$HOME/android-ndk-r26d" >> $GITHUB_ENV
+          # Fix nanosleep/tm bug in NDK r26d libc++ headers
+          sed -i 's|CMAKE_CXX_FLAGS_INIT ""|CMAKE_CXX_FLAGS_INIT "-include time.h"|' \
+            "$HOME/android-ndk-r26d/build/cmake/android.toolchain.cmake"
+          # Fix nanosleep/tm bug in NDK r26d libc++ headers
+          sed -i 's|CMAKE_CXX_FLAGS_INIT ""|CMAKE_CXX_FLAGS_INIT "-include time.h"|' \
+            "$HOME/android-ndk-r26d/build/cmake/android.toolchain.cmake"
 
       - name: Build ${{ matrix.lib }}
         run: |
@@ -106,6 +113,12 @@ jobs:
             rm /tmp/ndk.zip
           fi
           echo "ANDROID_NDK_HOME=$HOME/android-ndk-r26d" >> $GITHUB_ENV
+          # Fix nanosleep/tm bug in NDK r26d libc++ headers
+          sed -i 's|CMAKE_CXX_FLAGS_INIT ""|CMAKE_CXX_FLAGS_INIT "-include time.h"|' \
+            "$HOME/android-ndk-r26d/build/cmake/android.toolchain.cmake"
+          # Fix nanosleep/tm bug in NDK r26d libc++ headers
+          sed -i 's|CMAKE_CXX_FLAGS_INIT ""|CMAKE_CXX_FLAGS_INIT "-include time.h"|' \
+            "$HOME/android-ndk-r26d/build/cmake/android.toolchain.cmake"
 
       - name: Download Tier 1 libs
         uses: actions/download-artifact@v4
@@ -183,6 +196,9 @@ jobs:
             rm /tmp/ndk.zip
           fi
           echo "ANDROID_NDK_HOME=$HOME/android-ndk-r26d" >> $GITHUB_ENV
+          # Fix nanosleep/tm bug in NDK r26d libc++ headers
+          sed -i 's|CMAKE_CXX_FLAGS_INIT ""|CMAKE_CXX_FLAGS_INIT "-include time.h"|' \
+            "$HOME/android-ndk-r26d/build/cmake/android.toolchain.cmake"
 
       - name: Download all previous tier libs
         uses: actions/download-artifact@v4
@@ -252,6 +268,9 @@ jobs:
             rm /tmp/ndk.zip
           fi
           echo "ANDROID_NDK_HOME=$HOME/android-ndk-r26d" >> $GITHUB_ENV
+          # Fix nanosleep/tm bug in NDK r26d libc++ headers
+          sed -i 's|CMAKE_CXX_FLAGS_INIT ""|CMAKE_CXX_FLAGS_INIT "-include time.h"|' \
+            "$HOME/android-ndk-r26d/build/cmake/android.toolchain.cmake"
 
       - name: Download all previous tier libs
         uses: actions/download-artifact@v4

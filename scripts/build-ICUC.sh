@@ -3,16 +3,34 @@ set -euo pipefail
 NDK_DIR="$1"; OUTPUT_DIR="$2"; BUILD_DIR="$3"; API_LEVEL="${4:-24}"
 mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 git clone --depth 1 --branch release-75-1 https://github.com/unicode-org/icu.git src
-cd src/icu4c
-cmake -B build \
-  -DCMAKE_TOOLCHAIN_FILE="$NDK_DIR/build/cmake/android.toolchain.cmake" \
-  -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM="android-$API_LEVEL" \
-  -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$OUTPUT_DIR" \
-  -DCMAKE_PREFIX_PATH="$OUTPUT_DIR" \
-  -DCMAKE_FIND_ROOT_PATH="$OUTPUT_DIR" \
-  -DBUILD_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-  -DICU_BUILD_DATA=OFF -DICU_TOOLS=OFF -DICU_EXTRAS=OFF \
-  -DICU_ICUDATA=OFF -DICU_REMAKE=OFF
-cmake --build build -j$(nproc)
-cmake --install build
+cd src/icu4c/source
+
+TOOLCHAIN="$NDK_DIR/toolchains/llvm/prebuilt/linux-x8_64"
+TARGET=aarch64-linux-android
+export CC="$TOOLCHAIN/bin/${TARGET}${API_LEVEL}-clang"
+export CXX="$TOOLCHAIN/bin/${TARGET}${API_LEVEL}-clang++"
+export AR="$TOOLCHAIN/bin/llvm-ar"
+export RANLIB="$TOOLCHAIN/bin/llvm-ranlib"
+export STRIP="$TOOLCHAIN/bin/llvm-strip"
+
+export CFLAGS="--sysroot=$TOOLCHAIN/sysroot -O2 -fPIC"
+export CXXFLAGS="$CFLAGS -std=c++17"
+export LDFLAGS="--sysroot=$TOOLCHAIN/sysroot"
+
+./configure \
+  --host="$TARGET" \
+  --prefix="$OUTPUT_DIR" \
+  --enable-static \
+  --disable-shared \
+  --disable-tests \
+  --disable-samples \
+  --with-data-packaging=static \
+  --disable-extras \
+  --disable-icuio \
+  --disable-layout \
+  --disable-layoutex \
+  --disable-dyload
+
+make -j$(nproc)
+make install
 echo "ICUC built"
