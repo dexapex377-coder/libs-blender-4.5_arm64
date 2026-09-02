@@ -5,54 +5,60 @@ mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 git clone --depth 1 https://github.com/KhronosGroup/OpenCOLLADA.git src
 cd src
 
-# Force LibXml2 and PCRE to be found by setting the variables before cmake
-# Option 1: patch CMakeLists.txt to bypass the error on non-Windows
+# Patch: use bundled LibXml2/PCRE on all platforms (not just Win32)
 python3 << 'PYEOF'
 with open("CMakeLists.txt", "r") as f:
-    lines = f.readlines()
+    content = f.read()
 
-new_lines = []
-skip_until_endif = False
-inside_libxml_find = False
-inside_pcre_find = False
+# Fix LibXml2: use bundled on all platforms
+old = '''	else ()  # if xml2 not found building its local copy from ./Externals
+		if (WIN32)
+			message("WARNING: Native LibXml2 not found, taking LibXml from ./Externals")
+			add_subdirectory(${EXTERNAL_LIBRARIES}/LibXML)
+			set(LIBXML2_INCLUDE_DIR
+				${libxml_include_dirs}
+			)
+			set(LIBXML2_LIBRARIES xml)
+		else ()
+			message("ERROR: LibXml2 not found, please install xml2 library (for Debian libxml2-dev)")
+		endif ()
+	endif ()'''
 
-i = 0
-while i < len(lines):
-    line = lines[i]
+new = '''	else ()
+		message("WARNING: Native LibXml2 not found, using bundled from ./Externals")
+		add_subdirectory(${EXTERNAL_LIBRARIES}/LibXML)
+		set(LIBXML2_INCLUDE_DIR ${libxml_include_dirs})
+		set(LIBXML2_LIBRARIES xml)
+	endif ()'''
 
-    # For LibXml2 block: replace the non-Windows error with set()
-    if 'find_package(LibXml2)' in line:
-        new_lines.append('# ' + line)
-        i += 1
-        continue
+content = content.replace(old, new)
 
-    if 'find_package(PCRE)' in line:
-        new_lines.append('# ' + line)
-        i += 1
-        continue
+# Fix PCRE: use bundled on all platforms
+old = '''else ()  # if pcre not found building its local copy from ./Externals
+	if (WIN32 OR APPLE)
+		message("WARNING: Native PCRE not found, taking PCRE from ./Externals")
+		add_definitions(-DPCRE_STATIC)
+		add_subdirectory(${EXTERNAL_LIBRARIES}/pcre)
+		set(PCRE_INCLUDE_DIR ${libpcre_include_dirs})
+		set(PCRE_LIBRARIES pcre)
+	else ()
+		message("ERROR: PCRE not found, please install pcre library")
+	endif ()
+endif ()'''
 
-    # Replace ERROR: LibXml2 with set()
-    if 'message("ERROR: LibXml2 not found' in line:
-        new_lines.append('\t\tset(LIBXML2_FOUND TRUE)\n')
-        new_lines.append('\t\tset(LIBXML2_INCLUDE_DIR "")\n')
-        new_lines.append('\t\tset(LIBXML2_LIBRARIES "")\n')
-        i += 1
-        continue
+new = '''else ()
+	message("WARNING: Native PCRE not found, using bundled from ./Externals")
+	add_definitions(-DPCRE_STATIC)
+	add_subdirectory(${EXTERNAL_LIBRARIES}/pcre)
+	set(PCRE_INCLUDE_DIR ${libpcre_include_dirs})
+	set(PCRE_LIBRARIES pcre)
+endif ()'''
 
-    # Replace ERROR: PCRE with set()
-    if 'message("ERROR: PCRE not found' in line:
-        new_lines.append('\tset(PCRE_FOUND TRUE)\n')
-        new_lines.append('\tset(PCRE_INCLUDE_DIR "")\n')
-        new_lines.append('\tset(PCRE_LIBRARIES "")\n')
-        i += 1
-        continue
-
-    new_lines.append(line)
-    i += 1
+content = content.replace(old, new)
 
 with open("CMakeLists.txt", "w") as f:
-    f.writelines(new_lines)
-print("Patched CMakeLists.txt")
+    f.write(content)
+print("Patched successfully")
 PYEOF
 
 COMMON_FLAGS=(
@@ -62,7 +68,7 @@ COMMON_FLAGS=(
   -DCMAKE_PREFIX_PATH="$OUTPUT_DIR"
   -DCMAKE_FIND_ROOT_PATH="$OUTPUT_DIR"
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-  -DCMAKE_CXX_FLAGS="-include time.h"
+  -DCMAKE_CXX_FLAGS="-include time.h -std=c++14"
   -DOPENCOLLADA_BUILD_TESTS=OFF -DOPENCOLLADA_BUILD_TOOLS=OFF
   -DOPENCOLLADA_BUILD_VIEWER=OFF
 )
