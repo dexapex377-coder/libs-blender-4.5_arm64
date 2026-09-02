@@ -75,7 +75,7 @@ COMMON_FLAGS=(
 # Patch bundled LibXML: wrap wsockcompat.h with #ifdef _WIN32
 cat > /tmp/fix_wsock.py << 'PYEOF'
 import os
-path = "src/Externals/LibXML/include/wsockcompat.h"
+path = "Externals/LibXML/include/wsockcompat.h"
 if os.path.exists(path):
     with open(path, "r") as f:
         content = f.read()
