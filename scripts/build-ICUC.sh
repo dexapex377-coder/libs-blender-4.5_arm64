@@ -7,15 +7,21 @@ git clone --depth 1 --branch release-75-1 https://github.com/unicode-org/icu.git
 TOOLCHAIN="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64"
 TARGET=aarch64-linux-android
 
-# Phase 1: Build host ICU tools (needed for cross-compile)
+# Phase 1: Build host ICU tools
+mkdir -p "$BUILD_DIR/host-build"
 cd src/icu4c/source
-./configure --prefix="$BUILD_DIR/host-icu" --disable-tests --disable-samples --disable-extras --disable-icuio --disable-layout --disable-layoutex
+mkdir -p "$BUILD_DIR/host-build/source"
+cp -a . "$BUILD_DIR/host-build/source/"
+cd "$BUILD_DIR/host-build/source"
+./configure --prefix="$BUILD_DIR/host-install"
 make -j$(nproc)
 make install
-cd ../../..
+cd "$BUILD_DIR"
+ls host-install/bin/ 2>/dev/null || echo "No host bins"
+ls host-install/lib/icu/ 2>/dev/null || echo "No host icu lib"
+cd "$BUILD_DIR/src/icu4c/source"
 
 # Phase 2: Cross-compile ICU for Android
-cd src/icu4c/source
 export CC="$TOOLCHAIN/bin/${TARGET}${API_LEVEL}-clang"
 export CXX="$TOOLCHAIN/bin/${TARGET}${API_LEVEL}-clang++"
 export AR="$TOOLCHAIN/bin/llvm-ar"
@@ -28,7 +34,7 @@ export LDFLAGS="--sysroot=$TOOLCHAIN/sysroot"
 ./configure \
   --host="$TARGET" \
   --prefix="$OUTPUT_DIR" \
-  --with-cross-build="$BUILD_DIR/host-icu" \
+  --with-cross-build="$BUILD_DIR/host-build/source" \
   --enable-static \
   --enable-shared \
   --disable-tests \

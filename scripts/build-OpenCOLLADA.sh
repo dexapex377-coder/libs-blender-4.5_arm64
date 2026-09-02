@@ -4,27 +4,57 @@ NDK_DIR="$1"; OUTPUT_DIR="$2"; BUILD_DIR="$3"; API_LEVEL="${4:-24}"
 mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 git clone --depth 1 https://github.com/KhronosGroup/OpenCOLLADA.git src
 cd src
-sed -i 's/find_package(LibXml2)/#find_package(LibXml2)/' CMakeLists.txt
-sed -i 's/find_package(PCRE)/#find_package(PCRE)/' CMakeLists.txt
-# Force LIBXML2/PCRE to use bundled sources by setting vars directly
-sed -i '/message.*ERROR.*LibXml2/i\)\nif (NOT DEFINED LIBXML2_FOUND)\n  set(LIBXML2_FOUND TRUE)\n  set(LIBXML2_INCLUDE_DIR "")\n  set(LIBXML2_LIBRARIES "")\nendif()' CMakeLists.txt
-# Better approach: patch the else branches to not error
-cat > /tmp/fix_opencollada.py << 'PYEOF'
-import re
+
+# Force LibXml2 and PCRE to be found by setting the variables before cmake
+# Option 1: patch CMakeLists.txt to bypass the error on non-Windows
+python3 << 'PYEOF'
 with open("CMakeLists.txt", "r") as f:
-    content = f.read()
-# Fix LibXml2: on non-Windows, set LIBXML2_FOUND to avoid error
-old = 'else ()\n\t\tmessage("ERROR: LibXml2 not found, please install xml2 library (for Debian libxml2-dev)")\n\tendif ()'
-new = 'else ()\n\t\tset(LIBXML2_FOUND TRUE)\n\t\tset(LIBXML2_INCLUDE_DIR "")\n\t\tset(LIBXML2_LIBRARIES "")\n\tendif ()'
-content = content.replace(old, new)
-# Fix PCRE: on non-Windows/Apple, set PCRE_FOUND
-old = 'else ()\n\tmessage("ERROR: PCRE not found, please install pcre library")\nendif ()'
-new = 'else ()\n\tset(PCRE_FOUND TRUE)\n\tset(PCRE_INCLUDE_DIR "")\n\tset(PCRE_LIBRARIES "")\nendif ()'
-content = content.replace(old, new)
+    lines = f.readlines()
+
+new_lines = []
+skip_until_endif = False
+inside_libxml_find = False
+inside_pcre_find = False
+
+i = 0
+while i < len(lines):
+    line = lines[i]
+
+    # For LibXml2 block: replace the non-Windows error with set()
+    if 'find_package(LibXml2)' in line:
+        new_lines.append('# ' + line)
+        i += 1
+        continue
+
+    if 'find_package(PCRE)' in line:
+        new_lines.append('# ' + line)
+        i += 1
+        continue
+
+    # Replace ERROR: LibXml2 with set()
+    if 'message("ERROR: LibXml2 not found' in line:
+        new_lines.append('\t\tset(LIBXML2_FOUND TRUE)\n')
+        new_lines.append('\t\tset(LIBXML2_INCLUDE_DIR "")\n')
+        new_lines.append('\t\tset(LIBXML2_LIBRARIES "")\n')
+        i += 1
+        continue
+
+    # Replace ERROR: PCRE with set()
+    if 'message("ERROR: PCRE not found' in line:
+        new_lines.append('\tset(PCRE_FOUND TRUE)\n')
+        new_lines.append('\tset(PCRE_INCLUDE_DIR "")\n')
+        new_lines.append('\tset(PCRE_LIBRARIES "")\n')
+        i += 1
+        continue
+
+    new_lines.append(line)
+    i += 1
+
 with open("CMakeLists.txt", "w") as f:
-    f.write(content)
+    f.writelines(new_lines)
+print("Patched CMakeLists.txt")
 PYEOF
-python3 /tmp/fix_opencollada.py
+
 COMMON_FLAGS=(
   -DCMAKE_TOOLCHAIN_FILE="$NDK_DIR/build/cmake/android.toolchain.cmake"
   -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM="android-$API_LEVEL"
