@@ -18,12 +18,12 @@ cpu_family = 'aarch64'
 cpu = 'armv8a'
 endian = 'little'
 MESONEOF
-# Shared
 meson setup build \
   --cross-file /tmp/fribidi_cross.txt \
   --prefix="$OUTPUT_DIR" \
   --default-library=both \
-  -Dtests=false -Ddocs=false -Dfribidi-config=false
+  -Dtests=false -Ddocs=false
 ninja -C build
 ninja -C build install
 echo "Fribidi built"
+ls -lh "$OUTPUT_DIR/lib/"libfribidi*

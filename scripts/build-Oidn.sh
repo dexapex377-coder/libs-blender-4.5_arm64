@@ -20,4 +20,19 @@ cmake -B build \
   -DODNN_GPUDCNN_SUPPORT=OFF -DODNN_TRAINING_SUPPORT=OFF
 cmake --build build -j$(nproc)
 cmake --install build
+
+# Also build static
+cmake -B build-static \
+  -DCMAKE_TOOLCHAIN_FILE="$NDK_DIR/build/cmake/android.toolchain.cmake" \
+  -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM="android-$API_LEVEL" \
+  -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$OUTPUT_DIR" \
+  -DCMAKE_PREFIX_PATH="$OUTPUT_DIR" \
+  -DCMAKE_FIND_ROOT_PATH="$OUTPUT_DIR" \
+  -DTBB_DIR="$OUTPUT_DIR/lib/cmake/TBB" \
+  -DBUILD_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+  -DODNN_BUILD_TESTS=OFF -DODNN_BUILD_APPS=OFF -DODNN_BUILD_CLI=OFF \
+  -DODNN_ISPC_SUPPORT=OFF -DODNN_OPENAPI_SUPPORT=OFF \
+  -DODNN_GPUDCNN_SUPPORT=OFF -DODNN_TRAINING_SUPPORT=OFF
+cmake --build build-static -j$(nproc)
+cmake --install build-static
 echo "Oidn built"

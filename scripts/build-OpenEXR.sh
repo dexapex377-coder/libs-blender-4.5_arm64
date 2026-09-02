@@ -16,4 +16,17 @@ cmake -B build \
   -DOPENEXR_INSTALL_UTILS=OFF -DOPENEXR_FORCE_INTERNAL_IMATH=OFF
 cmake --build build -j$(nproc)
 cmake --install build
+
+# Also build shared
+cmake -B build-shared \
+  -DCMAKE_FIND_ROOT_PATH="$OUTPUT_DIR" \
+  -DCMAKE_PREFIX_PATH="$OUTPUT_DIR" \
+  -DCMAKE_TOOLCHAIN_FILE="$NDK_DIR/build/cmake/android.toolchain.cmake" \
+  -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM="android-$API_LEVEL" \
+  -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$OUTPUT_DIR" \
+  -DBUILD_SHARED_LIBS=ON -DBUILD_TESTING=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+  -DBUILD_TOOLS=OFF -DOPENEXR_INSTALL_EXAMPLES=OFF -DOPENEXR_INSTALL_DOCS=OFF \
+  -DOPENEXR_INSTALL_UTILS=OFF -DOPENEXR_FORCE_INTERNAL_IMATH=OFF
+cmake --build build-shared -j$(nproc)
+cmake --install build-shared
 echo "OpenEXR built"

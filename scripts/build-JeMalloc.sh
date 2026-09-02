@@ -11,7 +11,7 @@ TARGET=aarch64-linux-android
 ./configure \
   --host="$TARGET" \
   --prefix="$OUTPUT_DIR" \
-  --enable-shared --disable-static \
+  --enable-shared --enable-static \
   CC="$TOOLCHAIN/bin/${TARGET}${API_LEVEL}-clang" \
   CXX="$TOOLCHAIN/bin/${TARGET}${API_LEVEL}-clang++" \
   CFLAGS="--sysroot=$TOOLCHAIN/sysroot -O2 -fPIC" \

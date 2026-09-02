@@ -13,4 +13,14 @@ cmake -B build \
   -DBUILD_TOOLS=OFF
 cmake --build build -j$(nproc)
 cmake --install build
+
+# Also build static
+cmake -B build-static \
+  -DCMAKE_TOOLCHAIN_FILE="$NDK_DIR/build/cmake/android.toolchain.cmake" \
+  -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM="android-$API_LEVEL" \
+  -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$OUTPUT_DIR" \
+  -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+  -DBUILD_TOOLS=OFF
+cmake --build build-static -j$(nproc)
+cmake --install build-static
 echo "IMath built"

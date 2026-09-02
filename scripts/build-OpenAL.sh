@@ -16,4 +16,17 @@ cmake -B build \
   -DALSOFT_REQUIRE_OPENSL=ON -DALSOFT_BACKEND_WAVE=OFF
 cmake --build build -j$(nproc)
 cmake --install build
+
+# Also build static
+cmake -B build-static \
+  -DCMAKE_FIND_ROOT_PATH="$OUTPUT_DIR" \
+  -DCMAKE_PREFIX_PATH="$OUTPUT_DIR" \
+  -DCMAKE_TOOLCHAIN_FILE="$NDK_DIR/build/cmake/android.toolchain.cmake" \
+  -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM="android-$API_LEVEL" \
+  -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$OUTPUT_DIR" \
+  -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+  -DALSOFT_UTILS=OFF -DALSOFT_EXAMPLES=OFF -DALSOFT_TESTS=OFF \
+  -DALSOFT_REQUIRE_OPENSL=ON -DALSOFT_BACKEND_WAVE=OFF
+cmake --build build-static -j$(nproc)
+cmake --install build-static
 echo "OpenAL built"

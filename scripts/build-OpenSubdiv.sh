@@ -5,12 +5,10 @@ mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 git clone --depth 1 --branch v3_6_0 https://github.com/PixarAnimationStudios/OpenSubdiv.git src
 cd src
 
-# Direct NDK compilation — bypass cmake entirely
 TOOLCHAIN="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64"
 CC="$TOOLCHAIN/bin/aarch64-linux-android${API_LEVEL}-clang"
 CXX="$TOOLCHAIN/bin/aarch64-linux-android${API_LEVEL}-clang++"
 AR="$TOOLCHAIN/bin/llvm-ar"
-
 INC="-I. -Iopensubdiv -Iopensubdiv/osd -Iopensubdiv/far -Iopensubdiv/vtr -Iopensubdiv/sdc -Iopensubdiv/hbr -Iopensubdiv/bfr -IglLoader"
 CFLAGS="-O2 -fPIC -DANDROID -D__ANDROID_API__=$API_LEVEL -DOPENSUBDIV_VERSION_STRING=\"3.6.0\" $INC"
 CXXFLAGS="$CFLAGS -std=c++17"
@@ -29,8 +27,7 @@ compile_sources() {
     done < <(find "$dir" -name "*.cpp" \
         ! -name "*cl.cpp" ! -name "*cuda*" ! -name "*metal*" \
         ! -name "*vulkan*" ! -name "*dx*" ! -name "*d3d*" \
-        ! -name "*cudaRuntime*" ! -name "*cudacommon*" \
-        2>/dev/null)
+        ! -name "*cudaRuntime*" ! -name "*cudacommon*" 2>/dev/null)
     echo "  Compiled $count files from $dir"
 }
 
@@ -41,12 +38,16 @@ compile_sources "opensubdiv/vtr"
 compile_sources "opensubdiv/sdc"
 compile_sources "opensubdiv/bfr"
 
-# version
 $CXX $CXXFLAGS -c opensubdiv/version.cpp -o "$BUILD_DIR/obj/version.o" 2>/dev/null || true
 
-echo "=== Creating libosdCPU.a ==="
+echo "=== Creating static + shared libraries ==="
 mkdir -p "$OUTPUT_DIR/lib" "$OUTPUT_DIR/include/opensubdiv"
+
+# Static
 $AR rcs "$OUTPUT_DIR/lib/libosdCPU.a" "$BUILD_DIR/obj/"*.o
+
+# Shared
+$CXX -shared -o "$OUTPUT_DIR/lib/libosdCPU.so" "$BUILD_DIR/obj/"*.o -lm -lpthread
 
 echo "=== Copying headers ==="
 for dir in osd far hbr sdc vtr bfr; do
@@ -55,6 +56,6 @@ done
 find opensubdiv -maxdepth 1 -name "*.h" -exec cp {} "$OUTPUT_DIR/include/opensubdiv/" \; 2>/dev/null || true
 
 echo "=== Done ==="
-ls -lh "$OUTPUT_DIR/lib/libosdCPU.a"
+ls -lh "$OUTPUT_DIR/lib/libosdCPU"*
 echo "Objects: $(ls "$BUILD_DIR/obj/"*.o 2>/dev/null | wc -l)"
 echo "Headers: $(find "$OUTPUT_DIR/include/opensubdiv" -name "*.h" | wc -l)"

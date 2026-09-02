@@ -11,7 +11,7 @@ TARGET=aarch64-linux-android
   --target-os=android --arch=aarch64 --cpu=armv8-a \
   --cc="$TOOLCHAIN/bin/${TARGET}${API_LEVEL}-clang" \
   --sysroot="$TOOLCHAIN/sysroot" \
-  --enable-shared --disable-static \
+  --enable-shared --enable-static \
   --enable-cross-compile --enable-small \
   --disable-programs --disable-doc \
   --disable-everything \

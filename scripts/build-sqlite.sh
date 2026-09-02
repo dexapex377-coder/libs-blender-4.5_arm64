@@ -14,7 +14,7 @@ SYSROOT="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
 ./configure --host=aarch64-linux-android \
   CC="$CC" CXX="$CXX" \
   --prefix="$OUTPUT_DIR" \
-  --enable-shared --disable-static \
+  --enable-shared --enable-static \
   CFLAGS="--sysroot=$SYSROOT -O2 -fPIC" \
   LDFLAGS="--sysroot=$SYSROOT"
 make -j$(nproc)
