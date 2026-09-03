@@ -41,7 +41,7 @@ export LDFLAGS="--sysroot=$TOOLCHAIN/sysroot"
   --enable-shared \
   --disable-tests \
   --disable-samples \
-  --with-data-packaging=shared \
+  --with-data-packaging=static \
   --disable-extras \
   --disable-icuio \
   --disable-layout \

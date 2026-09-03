@@ -11,6 +11,26 @@ sed -i 's/include(oidn_ispc)/# ISPC disabled for Android/' CMakeLists.txt
 find . -name "CMakeLists.txt" -exec sed -i 's/include(oidn_ispc)/# ISPC disabled for Android/g' {} \;
 find . -name "CMakeLists.txt" -exec sed -i 's/ispc_target_add_sources/# ISPC disabled/g' {} \;
 
+# Generate stub ISPC headers so C++ files can compile without ISPC
+mkdir -p core/common
+cat > core/common/platform_ispc.h << 'ISPCSTUB'
+#pragma once
+// Stub ISPC header for Android (ISPC not available)
+#ifdef __cplusplus
+extern "C" {
+#endif
+typedef void* __uniform voidptr;
+#ifdef __cplusplus
+}
+#endif
+ISPCSTUB
+# Generate all needed ISPC stub headers
+for hdr in $(grep -rh "#include.*_ispc.h" . 2>/dev/null | sed 's/.*#include *["<]//;s/[">].*//' | sort -u); do
+  dir=$(dirname "$hdr")
+  mkdir -p "$dir"
+  echo "#pragma once" > "$hdr"
+done
+
 # Android Bionic doesn't have pthread_getaffinity_np/pthread_setaffinity_np
 # Replace with sched_setaffinity/sched_getaffinity (pid_t based, 0 = current process)
 sed -i 's/pthread_getaffinity_np(thread, sizeof(cpu_set_t)/sched_getaffinity(0, sizeof(cpu_set_t)/g' core/thread.cpp
