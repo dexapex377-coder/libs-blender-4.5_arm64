@@ -7,6 +7,7 @@ cd src
 mkdir -p build
 cat > "$HOME/force_includes.h" << 'HDR'
 #pragma once
+#include <time.h>
 #include <ctime>
 #include <cstdint>
 HDR

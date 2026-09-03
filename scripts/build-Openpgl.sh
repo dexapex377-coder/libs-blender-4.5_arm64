@@ -10,16 +10,23 @@ cat > force_includes.h << 'HDR'
 #include <cstdint>
 HDR
 rm -f cmake/FindTBB.cmake
+
+# Create a wrapper toolchain that allows finding packages outside sysroot
+cat > android-tbb.toolchain.cmake << 'TOOL'
+include("$ENV{NDK_DIR}/build/cmake/android.toolchain.cmake")
+set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE NEVER)
+TOOL
+export NDK_DIR="$NDK_DIR"
+
 COMMON_FLAGS=(
-  -DCMAKE_TOOLCHAIN_FILE="$NDK_DIR/build/cmake/android.toolchain.cmake"
+  -DCMAKE_TOOLCHAIN_FILE="$PWD/android-tbb.toolchain.cmake"
   -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM="android-$API_LEVEL"
   -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$OUTPUT_DIR"
-  -DCMAKE_PREFIX_PATH="$OUTPUT_DIR"
   -DCMAKE_CXX_FLAGS="-include $PWD/force_includes.h"
   -DCMAKE_HAVE_LIBC_PTHREAD=ON
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-  -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH
   -DOPENPGL_BUILD_TESTS=OFF -DOPENPGL_BUILD_EXAMPLES=OFF
+  -DTBB_DIR="$OUTPUT_DIR/lib/cmake/TBB"
 )
 cmake -B build -DBUILD_SHARED_LIBS=ON "${COMMON_FLAGS[@]}"
 cmake --build build -j$(nproc)
