@@ -47,9 +47,12 @@ ls -la "$TBB_CMAKE_DIR/"
 
 TBB_INC="$OUTPUT_DIR/include"
 
-# Symlink TBB headers into source tree so compiler finds them without -I flags
-mkdir -p third-party/tbb
-ln -sf "$TBB_INC/tbb" third-party/tbb/tbb
+# Symlink TBB headers into source tree so compiler finds them via third-party/ include path
+# Openpgl's CMakeLists.txt adds third-party/ as PRIVATE include dir
+rm -rf third-party/tbb
+ln -sf "$TBB_INC/tbb" third-party/tbb
+echo "Symlinked third-party/tbb → $TBB_INC/tbb"
+ls third-party/tbb/concurrent_vector.h
 
 cmake -B build \
   -DCMAKE_TOOLCHAIN_FILE="$NDK_DIR/build/cmake/android.toolchain.cmake" \

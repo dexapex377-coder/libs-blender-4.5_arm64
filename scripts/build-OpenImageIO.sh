@@ -2,6 +2,14 @@
 set -euo pipefail
 NDK_DIR="$1"; OUTPUT_DIR="$2"; BUILD_DIR="$3"; API_LEVEL="${4:-28}"
 mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
+
+# Fix NDK r29 libc++ bug: nanosleep undeclared in __thread/support/pthread.h
+PTHREAD_H="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/c++/v1/__thread/support/pthread.h"
+if [ -f "$PTHREAD_H" ] && ! grep -q 'include <time.h>' "$PTHREAD_H"; then
+  sed -i '1i #include <time.h>' "$PTHREAD_H"
+  echo "Patched NDK pthread.h for nanosleep"
+fi
+
 git clone --depth 1 --branch v2.5.16.0 https://github.com/AcademySoftwareFoundation/OpenImageIO.git src
 cd src
 mkdir -p build

@@ -82,26 +82,46 @@ find . -type f \( -name "*.h" -o -name "*.hpp" -o -name "*.cpp" \) -print0 | xar
 find . -type f \( -name "*.h" -o -name "*.hpp" -o -name "*.cpp" \) -print0 | xargs -0 sed -i 's|std::tr1::|std::|g'
 
 # Fix std::hash specialization: libc++ uses __ndk1 ABI namespace
-# COLLADABUHashFunctions.h does namespace std { template<> struct hash<...> }
-# which fails with "not in a namespace enclosing '__ndk1'"
-# Fix: use _LIBCPP_BEGIN_NAMESPACE_STD / _LIBCPP_END_NAMESPACE_STD macros
+# The fix goes in COLLADABUhash_map.h where COLLADABU_HASH_NAMESPACE_OPEN is defined
 python3 << 'PYEOF3'
-import re
-path = "COLLADABaseUtils/include/COLLADABUHashFunctions.h"
+path = "COLLADABaseUtils/include/COLLADABUhash_map.h"
 with open(path) as f:
-    c = f.read()
-# Replace "namespace std {" with _LIBCPP_BEGIN_NAMESPACE_STD and matching "}" with _LIBCPP_END_NAMESPACE_STD
-if '_LIBCPP_BEGIN_NAMESPACE_STD' not in c:
-    c = c.replace('namespace std {', '_LIBCPP_BEGIN_NAMESPACE_STD')
-    # Find and replace the matching closing brace for namespace std
-    # The pattern: the hash struct definition ends with }; then }
-    c = re.sub(r'(\};)\s*\n(\})\s*$', r'\1\n_LIBCPP_END_NAMESPACE_STD\n', c, count=1)
+    lines = f.readlines()
+
+# Find the Apple libc++ block and add Android libc++ before it
+# The Apple block is: #elif (defined(__APPLE__) || defined(__FreeBSD__)) && defined(_LIBCPP_VERSION)
+# We need to add: #elif defined(_LIBCPP_VERSION) BEFORE the Apple block
+new_lines = []
+added = False
+for line in lines:
+    if not added and '_LIBCPP_VERSION' in line and '__APPLE__' in line:
+        # Insert our _LIBCPP_VERSION block BEFORE the Apple block
+        new_lines.append('#elif defined(_LIBCPP_VERSION) && !defined(__APPLE__) && !defined(__FreeBSD__)\n')
+        new_lines.append('    // Android NDK libc++ (uses __ndk1 ABI namespace)\n')
+        new_lines.append('    #include <unordered_map>\n')
+        new_lines.append('    #include <unordered_set>\n')
+        new_lines.append('    #define COLLADABU_HASH_MAP std::unordered_map\n')
+        new_lines.append('    #define COLLADABU_HASH_MULTIMAP std::unordered_multimap\n')
+        new_lines.append('    #define COLLADABU_HASH_SET std::unordered_set\n')
+        new_lines.append('    #define COLLADABU_HASH_NAMESPACE_OPEN std\n')
+        new_lines.append('    #define COLLADABU_HASH_NAMESPACE_CLOSE\n')
+        new_lines.append('    #define COLLADABU_HASH_FUN hash\n')
+        added = True
+    new_lines.append(line)
+
+if added:
     with open(path, "w") as f:
-        f.write(c)
-    print("Patched COLLADABUHashFunctions.h for libc++ namespace")
+        f.writelines(new_lines)
+    print("Patched COLLADABUhash_map.h: added _LIBCPP_VERSION branch for Android libc++")
 else:
-    print("Already patched")
+    print("Already patched or Apple block not found")
 PYEOF3
+
+# Also need to fix the tr1 includes in COLLADABUhash_map.h for the GCC branch
+# The GCC branch uses tr1/unordered_map which doesn't exist in libc++
+# Our earlier find+sed already handled the includes, but the GCC define still
+# points to std::tr1 which is wrong — however it's guarded by __GNUC__ so libc++
+# (clang) won't hit it. The _LIBCPP_VERSION branch we added above takes priority.
 
 # Add missing POSIX headers to Externals LibXML
 sed -i '1i #include <unistd.h>\n#include <fcntl.h>\n#include <sys/types.h>\n#include <sys/stat.h>' Externals/LibXML/xmlIO.c
