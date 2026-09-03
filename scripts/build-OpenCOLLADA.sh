@@ -5,11 +5,6 @@ mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 git clone --depth 1 https://github.com/KhronosGroup/OpenCOLLADA.git src
 cd src
 
-# Fix Windows line endings first (all patches depend on this)
-dos2unix CMakeLists.txt 2>/dev/null || sed -i 's/\r$//' CMakeLists.txt
-dos2unix COLLADABaseUtils/include/COLLADABUhash_map.h 2>/dev/null || sed -i 's/\r$//' COLLADABaseUtils/include/COLLADABUhash_map.h
-dos2unix Externals/LibXML/xmlIO.c 2>/dev/null || sed -i 's/\r$//' Externals/LibXML/xmlIO.c
-
 # CAUSE: str.replace() patterns used \n + spaces but file has \r\n + tabs.
 # FIX: Use sed with flexible whitespace matching instead of exact Python str.replace().
 
@@ -78,8 +73,10 @@ if os.path.exists(path):
         print("Already patched")
 PYEOF2
 
+# Fix Windows line endings on ALL files first
+find . -type f \( -name "*.h" -o -name "*.hpp" -o -name "*.cpp" -o -name "*.c" -o -name "CMakeLists.txt" \) -print0 | xargs -0 dos2unix 2>/dev/null || true
+
 # Fix tr1/unordered_map and tr1/unordered_set → unordered_map/unordered_set in ALL files
-# NOTE: find with -o requires parentheses or else only last condition is piped to xargs
 find . \( -name "*.h" -o -name "*.hpp" -o -name "*.cpp" \) -print0 | xargs -0 sed -i 's|#include <tr1/unordered_map>|#include <unordered_map>|g' 2>/dev/null
 find . \( -name "*.h" -o -name "*.hpp" -o -name "*.cpp" \) -print0 | xargs -0 sed -i 's|#include <tr1/unordered_set>|#include <unordered_set>|g' 2>/dev/null
 find . \( -name "*.h" -o -name "*.hpp" -o -name "*.cpp" \) -print0 | xargs -0 sed -i 's|std::tr1::|std::|g' 2>/dev/null
