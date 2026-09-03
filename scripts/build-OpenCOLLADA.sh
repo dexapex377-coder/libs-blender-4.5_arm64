@@ -73,13 +73,13 @@ if os.path.exists(path):
         print("Already patched")
 PYEOF2
 
-# Fix Windows line endings on ALL files first
-find . -type f \( -name "*.h" -o -name "*.hpp" -o -name "*.cpp" -o -name "*.c" -o -name "CMakeLists.txt" \) -print0 | xargs -0 dos2unix 2>/dev/null || true
+# Fix Windows line endings on ALL files first (dos2unix may not be available)
+find . -type f \( -name "*.h" -o -name "*.hpp" -o -name "*.cpp" -o -name "*.c" -o -name "CMakeLists.txt" \) -print0 | xargs -0 sed -i 's/\r$//'
 
 # Fix tr1/unordered_map and tr1/unordered_set → unordered_map/unordered_set in ALL files
-find . \( -name "*.h" -o -name "*.hpp" -o -name "*.cpp" \) -print0 | xargs -0 sed -i 's|#include <tr1/unordered_map>|#include <unordered_map>|g' 2>/dev/null
-find . \( -name "*.h" -o -name "*.hpp" -o -name "*.cpp" \) -print0 | xargs -0 sed -i 's|#include <tr1/unordered_set>|#include <unordered_set>|g' 2>/dev/null
-find . \( -name "*.h" -o -name "*.hpp" -o -name "*.cpp" \) -print0 | xargs -0 sed -i 's|std::tr1::|std::|g' 2>/dev/null
+find . -type f \( -name "*.h" -o -name "*.hpp" -o -name "*.cpp" \) -print0 | xargs -0 sed -i 's|#include <tr1/unordered_map>|#include <unordered_map>|g'
+find . -type f \( -name "*.h" -o -name "*.hpp" -o -name "*.cpp" \) -print0 | xargs -0 sed -i 's|#include <tr1/unordered_set>|#include <unordered_set>|g'
+find . -type f \( -name "*.h" -o -name "*.hpp" -o -name "*.cpp" \) -print0 | xargs -0 sed -i 's|std::tr1::|std::|g'
 
 # Fix std::hash specialization: libc++ uses __ndk1 ABI namespace
 # COLLADABUHashFunctions.h does namespace std { template<> struct hash<...> }
@@ -121,10 +121,9 @@ COMMON_FLAGS=(
   -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$OUTPUT_DIR"
   -DCMAKE_PREFIX_PATH="$OUTPUT_DIR"
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-  -DCMAKE_CXX_FLAGS="-include time.h -std=c++14"
+  -DCMAKE_CXX_FLAGS="-include time.h -std=c++14 -Wno-error=unqualified-std-cast-call"
   -DOPENCOLLADA_BUILD_TESTS=OFF -DOPENCOLLADA_BUILD_TOOLS=OFF
   -DOPENCOLLADA_BUILD_VIEWER=OFF
-  -DCMAKE_CXX_FLAGS="-include time.h -std=c++14 -Wno-error=unqualified-std-cast-call"
 )
 
 cmake -B build -DBUILD_SHARED_LIBS=ON "${COMMON_FLAGS[@]}"

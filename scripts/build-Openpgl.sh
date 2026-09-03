@@ -5,6 +5,7 @@ mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 git clone --depth 1 https://github.com/OpenPathGuidingLibrary/openpgl.git src
 cd src
 
+# Remove bundled FindTBB.cmake so find_package uses Config mode → our TBBConfig.cmake
 rm -f cmake/FindTBB.cmake
 
 cat > force_includes.h << 'HDR'
@@ -13,13 +14,17 @@ cat > force_includes.h << 'HDR'
 #include <cstdint>
 HDR
 
-# CAUSE: NDK r26d CMAKE_FIND_ROOT_PATH_MODE_PACKAGE=ONLY blocks find_package(TBB).
-# FIX: Write a fake TBBConfig.cmake that creates TBB::tbb target directly.
-# This file is found by find_package(TBB CONFIG) without needing find_dependency().
+# Create a fake TBBConfig.cmake that find_package(TBB CONFIG) will find
 TBB_CMAKE_DIR="$OUTPUT_DIR/lib/cmake/TBB"
 mkdir -p "$TBB_CMAKE_DIR"
-cat > "$TBB_CMAKE_DIR/TBBConfig.cmake" << 'EOF'
-# Minimal TBB config for cross-compilation (NDK r26d)
+cat > "$TBB_CMAKE_DIR/TBBConfig.cmake" << 'TEOF'
+# Minimal TBB config for Android ARM64 cross-compilation (NDK r26d)
+# find_package(TBB REQUIRED tbb) needs TBB_tbb_FOUND
+set(TBB_FOUND TRUE)
+set(TBB_tbb_FOUND TRUE)
+set(TBB_INCLUDE_DIRS "${CMAKE_CURRENT_LIST_DIR}/../../../include")
+set(TBB_LIBRARIES TBB::tbb TBB::tbbmalloc)
+
 if(NOT TARGET TBB::tbb)
   add_library(TBB::tbb SHARED IMPORTED GLOBAL)
   set_target_properties(TBB::tbb PROPERTIES
@@ -33,11 +38,8 @@ if(NOT TARGET TBB::tbbmalloc)
     IMPORTED_LOCATION "${CMAKE_CURRENT_LIST_DIR}/../../../lib/libtbbmalloc.so"
   )
 endif()
-set(TBB_FOUND TRUE)
-set(TBB_INCLUDE_DIRS "${CMAKE_CURRENT_LIST_DIR}/../../../include")
-set(TBB_LIBRARIES TBB::tbb)
-EOF
-cat > "$TBB_CMAKE_DIR/TBBConfigVersion.cmake" << 'EOF'
+TEOF
+cat > "$TBB_CMAKE_DIR/TBBConfigVersion.cmake" << 'VEOF'
 set(PACKAGE_VERSION "2021.13")
 if("${PACKAGE_FIND_VERSION}" VERSION_GREATER "2021.13")
   set(PACKAGE_VERSION_COMPATIBLE FALSE)
@@ -47,15 +49,18 @@ else()
     set(PACKAGE_VERSION_EXACT TRUE)
   endif()
 endif()
-EOF
+VEOF
 echo "Created fake TBBConfig.cmake at $TBB_CMAKE_DIR"
+ls -la "$TBB_CMAKE_DIR/"
+
+TBB_INC="$OUTPUT_DIR/include"
 
 cmake -B build \
   -DCMAKE_TOOLCHAIN_FILE="$NDK_DIR/build/cmake/android.toolchain.cmake" \
   -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM="android-$API_LEVEL" \
   -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$OUTPUT_DIR" \
   -DCMAKE_PREFIX_PATH="$OUTPUT_DIR" \
-  -DCMAKE_CXX_FLAGS="-include time.h -include $PWD/force_includes.h" \
+  -DCMAKE_CXX_FLAGS="-include time.h -I${TBB_INC}" \
   -DCMAKE_HAVE_LIBC_PTHREAD=ON \
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -DOPENPGL_BUILD_TESTS=OFF -DOPENPGL_BUILD_EXAMPLES=OFF \
@@ -68,7 +73,7 @@ cmake -B build-static \
   -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM="android-$API_LEVEL" \
   -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$OUTPUT_DIR" \
   -DCMAKE_PREFIX_PATH="$OUTPUT_DIR" \
-  -DCMAKE_CXX_FLAGS="-include time.h -include $PWD/force_includes.h" \
+  -DCMAKE_CXX_FLAGS="-include time.h -I${TBB_INC}" \
   -DCMAKE_HAVE_LIBC_PTHREAD=ON \
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -DOPENPGL_BUILD_TESTS=OFF -DOPENPGL_BUILD_EXAMPLES=OFF \
