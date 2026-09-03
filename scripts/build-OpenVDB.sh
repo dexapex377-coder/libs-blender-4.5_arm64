@@ -5,8 +5,8 @@ mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 
 # Fix NDK r29 libc++ bug: nanosleep undeclared in __thread/support/pthread.h
 PTHREAD_H="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/c++/v1/__thread/support/pthread.h"
-if [ -f "$PTHREAD_H" ] && ! grep -q 'include <time.h>' "$PTHREAD_H"; then
-  sed -i '1i #include <time.h>' "$PTHREAD_H"
+if [ -f "$PTHREAD_H" ] && ! grep -q 'extern "C" int nanosleep' "$PTHREAD_H"; then
+  sed -i '/while (nanosleep/i #include <time.h>\nextern "C" { int nanosleep(const struct timespec*, struct timespec*); }' "$PTHREAD_H"
   echo "Patched NDK pthread.h for nanosleep"
 fi
 

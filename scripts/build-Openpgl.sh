@@ -7,27 +7,40 @@ cd src
 
 rm -f cmake/FindTBB.cmake
 
+# Find actual TBB include dir (2021.x may use oneapi/tbb/ or tbb/)
+TBB_INC="$OUTPUT_DIR/include"
+if [ -d "$TBB_INC/oneapi/tbb" ]; then
+  TBB_INCLUDE_DIR="$TBB_INC/oneapi"
+elif [ -d "$TBB_INC/tbb" ]; then
+  TBB_INCLUDE_DIR="$TBB_INC"
+else
+  echo "ERROR: TBB headers not found in $TBB_INC"
+  find "$TBB_INC" -name "concurrent_vector.h" 2>/dev/null
+  exit 1
+fi
+echo "TBB include dir: $TBB_INCLUDE_DIR"
+
 # Create a fake TBBConfig.cmake that find_package(TBB CONFIG) will find
 TBB_CMAKE_DIR="$OUTPUT_DIR/lib/cmake/TBB"
 mkdir -p "$TBB_CMAKE_DIR"
-cat > "$TBB_CMAKE_DIR/TBBConfig.cmake" << 'TEOF'
+cat > "$TBB_CMAKE_DIR/TBBConfig.cmake" << TEOF
 # Minimal TBB config for Android ARM64 cross-compilation
 set(TBB_FOUND TRUE)
 set(TBB_tbb_FOUND TRUE)
-set(TBB_INCLUDE_DIRS "${CMAKE_CURRENT_LIST_DIR}/../../../include")
+set(TBB_INCLUDE_DIRS "$TBB_INCLUDE_DIR")
 set(TBB_LIBRARIES TBB::tbb TBB::tbbmalloc)
 
 if(NOT TARGET TBB::tbb)
   add_library(TBB::tbb SHARED IMPORTED GLOBAL)
   set_target_properties(TBB::tbb PROPERTIES
-    IMPORTED_LOCATION "${CMAKE_CURRENT_LIST_DIR}/../../../lib/libtbb.so"
-    INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_LIST_DIR}/../../../include"
+    IMPORTED_LOCATION "$OUTPUT_DIR/lib/libtbb.so"
+    INTERFACE_INCLUDE_DIRECTORIES "$TBB_INCLUDE_DIR"
   )
 endif()
 if(NOT TARGET TBB::tbbmalloc)
   add_library(TBB::tbbmalloc SHARED IMPORTED GLOBAL)
   set_target_properties(TBB::tbbmalloc PROPERTIES
-    IMPORTED_LOCATION "${CMAKE_CURRENT_LIST_DIR}/../../../lib/libtbbmalloc.so"
+    IMPORTED_LOCATION "$OUTPUT_DIR/lib/libtbbmalloc.so"
   )
 endif()
 TEOF
@@ -43,16 +56,7 @@ else()
 endif()
 VEOF
 echo "Created fake TBBConfig.cmake at $TBB_CMAKE_DIR"
-ls -la "$TBB_CMAKE_DIR/"
-
-TBB_INC="$OUTPUT_DIR/include"
-
-# Symlink TBB headers into source tree so compiler finds them via third-party/ include path
-# Openpgl's CMakeLists.txt adds third-party/ as PRIVATE include dir
-rm -rf third-party/tbb
-ln -sf "$TBB_INC/tbb" third-party/tbb
-echo "Symlinked third-party/tbb → $TBB_INC/tbb"
-ls third-party/tbb/concurrent_vector.h
+cat "$TBB_CMAKE_DIR/TBBConfig.cmake"
 
 cmake -B build \
   -DCMAKE_TOOLCHAIN_FILE="$NDK_DIR/build/cmake/android.toolchain.cmake" \
@@ -62,7 +66,7 @@ cmake -B build \
   -DCMAKE_HAVE_LIBC_PTHREAD=ON \
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -DOPENPGL_BUILD_TESTS=OFF -DOPENPGL_BUILD_EXAMPLES=OFF \
-  -DTBB_DIR="$TBB_CMAKE_DIR" 2>&1 | tail -20
+  -DOPENPGL_TBB_ROOT="$OUTPUT_DIR" 2>&1 | tail -20
 cmake --build build -j$(nproc)
 cmake --install build
 
@@ -74,7 +78,7 @@ cmake -B build-static \
   -DCMAKE_HAVE_LIBC_PTHREAD=ON \
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -DOPENPGL_BUILD_TESTS=OFF -DOPENPGL_BUILD_EXAMPLES=OFF \
-  -DTBB_DIR="$TBB_CMAKE_DIR" 2>&1 | tail -5
+  -DOPENPGL_TBB_ROOT="$OUTPUT_DIR" 2>&1 | tail -5
 cmake --build build-static -j$(nproc)
 cmake --install build-static
 echo "Openpgl built"

@@ -77,9 +77,30 @@ PYEOF2
 find . -type f \( -name "*.h" -o -name "*.hpp" -o -name "*.cpp" -o -name "*.c" -o -name "CMakeLists.txt" \) -print0 | xargs -0 sed -i 's/\r$//'
 
 # Fix tr1/unordered_map and tr1/unordered_set → unordered_map/unordered_set in ALL files
-find . -type f \( -name "*.h" -o -name "*.hpp" -o -name "*.cpp" \) -print0 | xargs -0 sed -i 's|#include <tr1/unordered_map>|#include <unordered_map>|g'
-find . -type f \( -name "*.h" -o -name "*.hpp" -o -name "*.cpp" \) -print0 | xargs -0 sed -i 's|#include <tr1/unordered_set>|#include <unordered_set>|g'
-find . -type f \( -name "*.h" -o -name "*.hpp" -o -name "*.cpp" \) -print0 | xargs -0 sed -i 's|std::tr1::|std::|g'
+# Use Python for reliability (find+sed with \r\n can be fragile)
+python3 << 'PYEOF_fix'
+import os, re
+fixes = [
+    ('#include <tr1/unordered_map>', '#include <unordered_map>'),
+    ('#include <tr1/unordered_set>', '#include <unordered_set>'),
+    ('std::tr1::', 'std::'),
+]
+count = 0
+for root, dirs, files in os.walk('.'):
+    for fn in files:
+        if fn.endswith(('.h', '.hpp', '.cpp', '.c')):
+            path = os.path.join(root, fn)
+            with open(path, 'r', errors='replace') as f:
+                c = f.read()
+            orig = c
+            for old, new in fixes:
+                c = c.replace(old, new)
+            if c != orig:
+                with open(path, 'w') as f:
+                    f.write(c)
+                count += 1
+print(f"Fixed tr1 references in {count} files")
+PYEOF_fix
 
 # Fix std::hash specialization: libc++ uses __ndk1 ABI namespace
 # The fix goes in COLLADABUhash_map.h where COLLADABU_HASH_NAMESPACE_OPEN is defined
