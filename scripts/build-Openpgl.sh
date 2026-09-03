@@ -15,8 +15,7 @@ rm -f cmake/FindTBB.cmake
 
 # CAUSE: NDK r26d forces CMAKE_FIND_ROOT_PATH_MODE_PACKAGE=ONLY.
 # Every form of find_package(TBB) fails because CMake filters paths through sysroot.
-# Even include(TBBConfig.cmake) fails because TBBConfig internally calls find_dependency().
-# FIX: Create TBB::tbb imported target manually from known install paths.
+# FIX: Create TBB::tbb imported target manually using OPENPGL_LIBS_DIR passed as cmake var.
 python3 << 'PYEOF'
 with open("CMakeLists.txt") as f:
     lines = f.readlines()
@@ -26,41 +25,35 @@ skip_block = False
 replaced = False
 for line in lines:
     stripped = line.strip()
-    # Start replacement at SET(OPENPGL_TBB_COMPONENT "tbb"...)
     if 'SET(OPENPGL_TBB_COMPONENT "tbb"' in stripped and not replaced:
         new_lines.append('# Cross-compile fix: NDK r26d FIND_ROOT_PATH_MODE_PACKAGE=ONLY\n')
-        new_lines.append('# find_package(TBB) is impossible — create targets manually.\n')
         new_lines.append('set(OPENPGL_TBB_COMPONENT "tbb" CACHE STRING "The TBB component/library name.")\n')
-        new_lines.append('if(NOT TBB_DIR)\n')
-        new_lines.append('  set(TBB_DIR "$ENV{TBB_DIR}")\n')
+        new_lines.append('if(NOT OPENPGL_LIBS_DIR)\n')
+        new_lines.append('  message(FATAL_ERROR "OPENPGL_LIBS_DIR not set")\n')
         new_lines.append('endif()\n')
-        new_lines.append('if(NOT TBB_DIR)\n')
-        new_lines.append('  message(FATAL_ERROR "TBB_DIR not set. Pass -DTBB_DIR=/path/to/lib/cmake/TBB")\n')
-        new_lines.append('endif()\n')
-        new_lines.append('# Import TBB targets directly (bypass find_package)\n')
+        new_lines.append('set(_tbb_inc "${OPENPGL_LIBS_DIR}/include")\n')
+        new_lines.append('set(_tbb_lib "${OPENPGL_LIBS_DIR}/lib")\n')
+        new_lines.append('message(STATUS "Openpgl: TBB lib=${_tbb_lib} inc=${_tbb_inc}")\n')
         new_lines.append('if(NOT TARGET TBB::tbb)\n')
-        new_lines.append('  add_library(TBB::tbb SHARED IMPORTED)\n')
+        new_lines.append('  add_library(TBB::tbb SHARED IMPORTED GLOBAL)\n')
         new_lines.append('  set_target_properties(TBB::tbb PROPERTIES\n')
-        new_lines.append('    IMPORTED_LOCATION "${TBB_DIR}/../../../lib/libtbb.so"\n')
-        new_lines.append('    INTERFACE_INCLUDE_DIRECTORIES "${TBB_DIR}/../../../include"\n')
+        new_lines.append('    IMPORTED_LOCATION "${_tbb_lib}/libtbb.so"\n')
+        new_lines.append('    INTERFACE_INCLUDE_DIRECTORIES "${_tbb_inc}"\n')
         new_lines.append('  )\n')
-        new_lines.append('  add_library(TBB::tbbmalloc SHARED IMPORTED)\n')
+        new_lines.append('  add_library(TBB::tbbmalloc SHARED IMPORTED GLOBAL)\n')
         new_lines.append('  set_target_properties(TBB::tbbmalloc PROPERTIES\n')
-        new_lines.append('    IMPORTED_LOCATION "${TBB_DIR}/../../../lib/libtbbmalloc.so"\n')
+        new_lines.append('    IMPORTED_LOCATION "${_tbb_lib}/libtbbmalloc.so"\n')
         new_lines.append('  )\n')
         new_lines.append('endif()\n')
         new_lines.append('set(TBB_FOUND TRUE)\n')
-        new_lines.append('set(TBB_INCLUDE_DIR "${TBB_DIR}/../../../include")\n')
-        new_lines.append('message(STATUS "Openpgl: TBB targets created from ${TBB_DIR}")\n')
+        new_lines.append('set(TBB_INCLUDE_DIR "${_tbb_inc}")\n')
         skip_block = True
         replaced = True
         continue
-    # Skip the original TBB block (SET...TBB_COMPONENT through endif())
     if skip_block:
         if stripped == 'endif()':
             skip_block = False
         continue
-    # Skip the original FIND_PACKAGE(TBB REQUIRED...)
     if 'FIND_PACKAGE(TBB REQUIRED' in stripped and replaced:
         continue
     new_lines.append(line)
@@ -69,8 +62,6 @@ with open("CMakeLists.txt", "w") as f:
     f.writelines(new_lines)
 print("Patched Openpgl: TBB targets created manually (no find_package)")
 PYEOF
-
-export TBB_DIR="$OUTPUT_DIR/lib/cmake/TBB"
 
 COMMON_FLAGS=(
   -DCMAKE_TOOLCHAIN_FILE="$NDK_DIR/build/cmake/android.toolchain.cmake"
@@ -81,7 +72,7 @@ COMMON_FLAGS=(
   -DCMAKE_HAVE_LIBC_PTHREAD=ON
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON
   -DOPENPGL_BUILD_TESTS=OFF -DOPENPGL_BUILD_EXAMPLES=OFF
-  -DTBB_DIR="$OUTPUT_DIR/lib/cmake/TBB"
+  -DOPENPGL_LIBS_DIR="$OUTPUT_DIR"
 )
 
 cmake -B build -DBUILD_SHARED_LIBS=ON "${COMMON_FLAGS[@]}" 2>&1 | tail -20

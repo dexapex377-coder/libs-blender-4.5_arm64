@@ -78,8 +78,9 @@ if os.path.exists(path):
         print("Already patched")
 PYEOF2
 
-# Fix tr1/unordered_map → unordered_map in ALL files
+# Fix tr1/unordered_map and tr1/unordered_set → unordered_map/unordered_set in ALL files
 find . -name "*.h" -o -name "*.hpp" -o -name "*.cpp" | xargs sed -i 's|#include <tr1/unordered_map>|#include <unordered_map>|g' 2>/dev/null
+find . -name "*.h" -o -name "*.hpp" -o -name "*.cpp" | xargs sed -i 's|#include <tr1/unordered_set>|#include <unordered_set>|g' 2>/dev/null
 find . -name "*.h" -o -name "*.hpp" -o -name "*.cpp" | xargs sed -i 's|std::tr1::|std::|g' 2>/dev/null
 
 # Add missing POSIX headers to Externals LibXML
