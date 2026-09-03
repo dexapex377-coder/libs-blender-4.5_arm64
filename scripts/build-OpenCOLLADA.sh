@@ -95,6 +95,7 @@ COMMON_FLAGS=(
   -DCMAKE_CXX_FLAGS="-include time.h -std=c++14"
   -DOPENCOLLADA_BUILD_TESTS=OFF -DOPENCOLLADA_BUILD_TOOLS=OFF
   -DOPENCOLLADA_BUILD_VIEWER=OFF
+  -DCMAKE_CXX_FLAGS="-include time.h -std=c++14 -Wno-error=unqualified-std-cast-call"
 )
 
 cmake -B build -DBUILD_SHARED_LIBS=ON "${COMMON_FLAGS[@]}"
