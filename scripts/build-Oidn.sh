@@ -10,6 +10,13 @@ sed -i 's/include(oidn_ispc.cmake)/# ISPC disabled for Android/' CMakeLists.txt
 sed -i 's/include(oidn_ispc)/# ISPC disabled for Android/' CMakeLists.txt
 find . -name "CMakeLists.txt" -exec sed -i 's/include(oidn_ispc)/# ISPC disabled for Android/g' {} \;
 find . -name "CMakeLists.txt" -exec sed -i 's/ispc_target_add_sources/# ISPC disabled/g' {} \;
+
+# Android Bionic doesn't have pthread_getaffinity_np/pthread_setaffinity_np
+# Replace with sched_setaffinity/sched_getaffinity (pid_t based, 0 = current process)
+sed -i 's/pthread_getaffinity_np(thread, sizeof(cpu_set_t)/sched_getaffinity(0, sizeof(cpu_set_t)/g' core/thread.cpp
+sed -i 's/pthread_setaffinity_np(thread, sizeof(cpu_set_t)/sched_setaffinity(0, sizeof(cpu_set_t)/g' core/thread.cpp
+sed -i '1s/^/#include <sched.h>\n/' core/thread.cpp
+
 cmake -B build \
   -DCMAKE_TOOLCHAIN_FILE="$NDK_DIR/build/cmake/android.toolchain.cmake" \
   -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM="android-$API_LEVEL" \

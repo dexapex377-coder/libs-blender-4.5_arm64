@@ -71,6 +71,7 @@ COMMON_FLAGS=(
   -DCMAKE_CXX_FLAGS="-include time.h -std=c++14"
   -DOPENCOLLADA_BUILD_TESTS=OFF -DOPENCOLLADA_BUILD_TOOLS=OFF
   -DOPENCOLLADA_BUILD_VIEWER=OFF
+  -DLIBXML_HTTP_ENABLED=OFF -DLIBXML_FTP_ENABLED=OFF
 )
 # Patch bundled LibXML: wrap wsockcompat.h with #ifdef _WIN32
 cat > /tmp/fix_wsock.py << 'PYEOF'

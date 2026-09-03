@@ -16,6 +16,7 @@ mkdir -p "$BUILD_DIR/host-build/source"
 cd src/icu4c/source
 cp -a . "$BUILD_DIR/host-build/source/"
 cd "$BUILD_DIR/host-build/source"
+touch ../LICENSE
 chmod +x configure install-sh config.guess config.sub mkinstalldirs
 ./configure --prefix="$BUILD_DIR/host-install"
 make -j$(nproc)
