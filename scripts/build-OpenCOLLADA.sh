@@ -91,7 +91,7 @@ else:
 PYEOF
 python3 /tmp/fix_wsock.py
 # Patch bundled nanohttp.c: add POSIX socket headers for Android
-sed -i '/#include <libxml\/parser.h>/a #include <sys/types.h>\n#include <sys/socket.h>\n#include <sys/select.h>\n#include <netinet/in.h>\n#include <arpa/inet.h>\n#include <unistd.h>' Externals/LibXML/nanohttp.c
+sed -i '/#include <libxml\/parser.h>/a #include <sys/types.h>\n#include <sys/socket.h>\n#include <sys/select.h>\n#include <netinet/in.h>\n#include <arpa/inet.h>\n#include <netdb.h>\n#include <unistd.h>\n#include <fcntl.h>\n#include <errno.h>' Externals/LibXML/nanohttp.c
 # Also define LIBXML_HTTP_ENABLED=0 at top of nanohttp.c to skip HTTP entirely
 sed -i '1i #define LIBXML_HTTP_ENABLED 0' Externals/LibXML/nanohttp.c
 cmake -B build -DBUILD_SHARED_LIBS=ON "${COMMON_FLAGS[@]}"

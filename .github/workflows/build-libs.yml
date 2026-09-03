@@ -168,7 +168,6 @@ jobs:
         lib:
           - OpenEXR
           - Embree
-          - Oidn
           - OpenSubdiv
           - Epoxy
           - OpenAL
