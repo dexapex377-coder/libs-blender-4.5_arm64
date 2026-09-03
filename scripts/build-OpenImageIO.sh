@@ -11,6 +11,13 @@ cat > "$HOME/force_includes.h" << 'HDR'
 #include <ctime>
 #include <cstdint>
 HDR
+# Patch NDK libc++ headers directly to fix 'reference to unresolved using declaration'
+NDK_INC="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/c++/v1"
+for hdr in "$NDK_INC/__chrono/system_clock.h" "$NDK_INC/__chrono/high_resolution_clock.h" "$NDK_INC/__threading_support"; do
+  if [ -f "$hdr" ] && ! head -5 "$hdr" | grep -q 'time.h'; then
+    sed -i '1i #include <time.h>' "$hdr"
+  fi
+done
 cmake -B build \
   -DCMAKE_TOOLCHAIN_FILE="$NDK_DIR/build/cmake/android.toolchain.cmake" \
   -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM="android-$API_LEVEL" \
