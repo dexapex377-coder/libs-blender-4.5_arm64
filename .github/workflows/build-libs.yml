@@ -6,8 +6,8 @@ on:
   workflow_dispatch:
 
 env:
-  NDK_VERSION: "r26d"
-  NDK_URL: "https://dl.google.com/android/repository/android-ndk-r26d-linux.zip"
+  NDK_VERSION: "r29"
+  NDK_URL: "https://dl.google.com/android/repository/android-ndk-r29-linux.zip"
   ANDROID_API: "24"
 
 jobs:
@@ -43,23 +43,17 @@ jobs:
 
       - name: Download NDK
         run: |
-          if [ ! -d "$HOME/android-ndk-r26d" ]; then
+          if [ ! -d "$HOME/android-ndk-r29" ]; then
             wget -q "${{ env.NDK_URL }}" -O /tmp/ndk.zip
             unzip -q /tmp/ndk.zip -d "$HOME/"
             rm /tmp/ndk.zip
           fi
-          echo "ANDROID_NDK_HOME=$HOME/android-ndk-r26d" >> $GITHUB_ENV
-          # Fix nanosleep/tm bug in NDK r26d libc++ headers
-          sed -i 's|CMAKE_CXX_FLAGS_INIT ""|CMAKE_CXX_FLAGS_INIT "-include time.h"|' \
-            "$HOME/android-ndk-r26d/build/cmake/android.toolchain.cmake"
-          # Fix nanosleep/tm bug in NDK r26d libc++ headers
-          sed -i 's|CMAKE_CXX_FLAGS_INIT ""|CMAKE_CXX_FLAGS_INIT "-include time.h"|' \
-            "$HOME/android-ndk-r26d/build/cmake/android.toolchain.cmake"
+          echo "ANDROID_NDK_HOME=$HOME/android-ndk-r29" >> $GITHUB_ENV
 
       - name: Build ${{ matrix.lib }}
         run: |
           bash repo/scripts/build-${{ matrix.lib }}.sh \
-            "$HOME/android-ndk-r26d" \
+            "$HOME/android-ndk-r29" \
             "$HOME/libs" \
             "$HOME/build/${{ matrix.lib }}" \
             "${{ env.ANDROID_API }}"
@@ -98,7 +92,7 @@ jobs:
           - JeMalloc
           - OpenBlas
           - Boost
-          - Openpgl  # optional, may fail
+          - Openpgl
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -107,18 +101,12 @@ jobs:
 
       - name: Download NDK
         run: |
-          if [ ! -d "$HOME/android-ndk-r26d" ]; then
+          if [ ! -d "$HOME/android-ndk-r29" ]; then
             wget -q "${{ env.NDK_URL }}" -O /tmp/ndk.zip
             unzip -q /tmp/ndk.zip -d "$HOME/"
             rm /tmp/ndk.zip
           fi
-          echo "ANDROID_NDK_HOME=$HOME/android-ndk-r26d" >> $GITHUB_ENV
-          # Fix nanosleep/tm bug in NDK r26d libc++ headers
-          sed -i 's|CMAKE_CXX_FLAGS_INIT ""|CMAKE_CXX_FLAGS_INIT "-include time.h"|' \
-            "$HOME/android-ndk-r26d/build/cmake/android.toolchain.cmake"
-          # Fix nanosleep/tm bug in NDK r26d libc++ headers
-          sed -i 's|CMAKE_CXX_FLAGS_INIT ""|CMAKE_CXX_FLAGS_INIT "-include time.h"|' \
-            "$HOME/android-ndk-r26d/build/cmake/android.toolchain.cmake"
+          echo "ANDROID_NDK_HOME=$HOME/android-ndk-r29" >> $GITHUB_ENV
 
       - name: Download Tier 1 libs
         uses: actions/download-artifact@v4
@@ -140,7 +128,7 @@ jobs:
           export CMAKE_PREFIX_PATH="$HOME/libs"
           export PKG_CONFIG_PATH="$HOME/libs/lib/pkgconfig:$HOME/libs/lib64/pkgconfig"
           bash repo/scripts/build-${{ matrix.lib }}.sh \
-            "$HOME/android-ndk-r26d" \
+            "$HOME/android-ndk-r29" \
             "$HOME/libs" \
             "$HOME/build/${{ matrix.lib }}" \
             "${{ env.ANDROID_API }}"
@@ -189,15 +177,12 @@ jobs:
 
       - name: Download NDK
         run: |
-          if [ ! -d "$HOME/android-ndk-r26d" ]; then
+          if [ ! -d "$HOME/android-ndk-r29" ]; then
             wget -q "${{ env.NDK_URL }}" -O /tmp/ndk.zip
             unzip -q /tmp/ndk.zip -d "$HOME/"
             rm /tmp/ndk.zip
           fi
-          echo "ANDROID_NDK_HOME=$HOME/android-ndk-r26d" >> $GITHUB_ENV
-          # Fix nanosleep/tm bug in NDK r26d libc++ headers
-          sed -i 's|CMAKE_CXX_FLAGS_INIT ""|CMAKE_CXX_FLAGS_INIT "-include time.h"|' \
-            "$HOME/android-ndk-r26d/build/cmake/android.toolchain.cmake"
+          echo "ANDROID_NDK_HOME=$HOME/android-ndk-r29" >> $GITHUB_ENV
 
       - name: Download all previous tier libs
         uses: actions/download-artifact@v4
@@ -224,7 +209,7 @@ jobs:
           export CMAKE_PREFIX_PATH="$HOME/libs"
           export PKG_CONFIG_PATH="$HOME/libs/lib/pkgconfig:$HOME/libs/lib64/pkgconfig"
           bash repo/scripts/build-${{ matrix.lib }}.sh \
-            "$HOME/android-ndk-r26d" \
+            "$HOME/android-ndk-r29" \
             "$HOME/libs" \
             "$HOME/build/${{ matrix.lib }}" \
             "${{ env.ANDROID_API }}"
@@ -261,15 +246,12 @@ jobs:
 
       - name: Download NDK
         run: |
-          if [ ! -d "$HOME/android-ndk-r26d" ]; then
+          if [ ! -d "$HOME/android-ndk-r29" ]; then
             wget -q "${{ env.NDK_URL }}" -O /tmp/ndk.zip
             unzip -q /tmp/ndk.zip -d "$HOME/"
             rm /tmp/ndk.zip
           fi
-          echo "ANDROID_NDK_HOME=$HOME/android-ndk-r26d" >> $GITHUB_ENV
-          # Fix nanosleep/tm bug in NDK r26d libc++ headers
-          sed -i 's|CMAKE_CXX_FLAGS_INIT ""|CMAKE_CXX_FLAGS_INIT "-include time.h"|' \
-            "$HOME/android-ndk-r26d/build/cmake/android.toolchain.cmake"
+          echo "ANDROID_NDK_HOME=$HOME/android-ndk-r29" >> $GITHUB_ENV
 
       - name: Download all previous tier libs
         uses: actions/download-artifact@v4
@@ -296,7 +278,7 @@ jobs:
           export CMAKE_PREFIX_PATH="$HOME/libs"
           export PKG_CONFIG_PATH="$HOME/libs/lib/pkgconfig:$HOME/libs/lib64/pkgconfig"
           bash repo/scripts/build-${{ matrix.lib }}.sh \
-            "$HOME/android-ndk-r26d" \
+            "$HOME/android-ndk-r29" \
             "$HOME/libs" \
             "$HOME/build/${{ matrix.lib }}" \
             "${{ env.ANDROID_API }}"
@@ -355,4 +337,3 @@ jobs:
           name: libs-blender-4.5-arm64
           path: ${{ github.workspace }}/libs-blender-4.5-arm64.tar.gz
           retention-days: 30
-# Tue Sep  1 23:29:30 UTC 2026

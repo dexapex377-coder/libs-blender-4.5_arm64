@@ -27,8 +27,8 @@ export CXX="$TOOLCHAIN/bin/${TARGET}${API_LEVEL}-clang++"
 export AR="$TOOLCHAIN/bin/llvm-ar"
 export RANLIB="$TOOLCHAIN/bin/llvm-ranlib"
 export STRIP="$TOOLCHAIN/bin/llvm-strip"
-export CFLAGS="--sysroot=$TOOLCHAIN/sysroot -O2 -fPIC -include time.h"
-export CXXFLAGS="$CFLAGS -std=c++17 -include time.h"
+export CFLAGS="--sysroot=$TOOLCHAIN/sysroot -O2 -fPIC"
+export CXXFLAGS="$CFLAGS -std=c++17"
 export LDFLAGS="--sysroot=$TOOLCHAIN/sysroot"
 
 ./configure \

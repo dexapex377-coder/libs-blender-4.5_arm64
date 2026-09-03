@@ -12,7 +12,7 @@ export CXX="$TOOLCHAIN/bin/${TARGET}${API_LEVEL}-clang++"
 export AR="$TOOLCHAIN/bin/llvm-ar"
 export RANLIB="$TOOLCHAIN/bin/llvm-ranlib"
 export STRIP="$TOOLCHAIN/bin/llvm-strip"
-export CFLAGS="-O2 -fPIC -include time.h"
+export CFLAGS="-O2 -fPIC"
 export LDFLAGS=""
 
 ./configure \

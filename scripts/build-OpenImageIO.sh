@@ -5,26 +5,12 @@ mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 git clone --depth 1 --branch v2.5.16.0 https://github.com/AcademySoftwareFoundation/OpenImageIO.git src
 cd src
 mkdir -p build
-cat > "$HOME/force_includes.h" << 'HDR'
-#pragma once
-#include <time.h>
-#include <ctime>
-#include <cstdint>
-HDR
-# Patch NDK libc++ headers directly to fix 'reference to unresolved using declaration'
-NDK_INC="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/c++/v1"
-for hdr in "$NDK_INC/__chrono/system_clock.h" "$NDK_INC/__chrono/high_resolution_clock.h" "$NDK_INC/__threading_support"; do
-  if [ -f "$hdr" ] && ! head -5 "$hdr" | grep -q 'time.h'; then
-    sed -i '1i #include <time.h>' "$hdr"
-  fi
-done
 cmake -B build \
   -DCMAKE_TOOLCHAIN_FILE="$NDK_DIR/build/cmake/android.toolchain.cmake" \
   -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM="android-$API_LEVEL" \
   -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$OUTPUT_DIR" \
   -DCMAKE_PREFIX_PATH="$OUTPUT_DIR" \
   -DCMAKE_FIND_ROOT_PATH="$OUTPUT_DIR" \
-  -DCMAKE_CXX_FLAGS="-include time.h -include $HOME/force_includes.h" \
   -DBUILD_SHARED_LIBS=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -DOIIO_BUILD_TOOLS=OFF -DOIIO_BUILD_TESTS=OFF \
   -DUSE_PYTHON=OFF -DUSE_OPENGL=OFF -DUSE_QT=OFF \
@@ -50,7 +36,6 @@ cmake -B build-static \
   -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$OUTPUT_DIR" \
   -DCMAKE_PREFIX_PATH="$OUTPUT_DIR" \
   -DCMAKE_FIND_ROOT_PATH="$OUTPUT_DIR" \
-  -DCMAKE_CXX_FLAGS="-include time.h -include $HOME/force_includes.h" \
   -DBUILD_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -DOIIO_BUILD_TOOLS=OFF -DOIIO_BUILD_TESTS=OFF \
   -DUSE_PYTHON=OFF -DUSE_OPENGL=OFF -DUSE_QT=OFF \

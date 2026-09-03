@@ -5,21 +5,13 @@ mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 git clone --depth 1 https://github.com/OpenPathGuidingLibrary/openpgl.git src
 cd src
 
-# Remove bundled FindTBB.cmake so find_package uses Config mode → our TBBConfig.cmake
 rm -f cmake/FindTBB.cmake
-
-cat > force_includes.h << 'HDR'
-#pragma once
-#include <ctime>
-#include <cstdint>
-HDR
 
 # Create a fake TBBConfig.cmake that find_package(TBB CONFIG) will find
 TBB_CMAKE_DIR="$OUTPUT_DIR/lib/cmake/TBB"
 mkdir -p "$TBB_CMAKE_DIR"
 cat > "$TBB_CMAKE_DIR/TBBConfig.cmake" << 'TEOF'
-# Minimal TBB config for Android ARM64 cross-compilation (NDK r26d)
-# find_package(TBB REQUIRED tbb) needs TBB_tbb_FOUND
+# Minimal TBB config for Android ARM64 cross-compilation
 set(TBB_FOUND TRUE)
 set(TBB_tbb_FOUND TRUE)
 set(TBB_INCLUDE_DIRS "${CMAKE_CURRENT_LIST_DIR}/../../../include")
@@ -55,12 +47,15 @@ ls -la "$TBB_CMAKE_DIR/"
 
 TBB_INC="$OUTPUT_DIR/include"
 
+# Symlink TBB headers into source tree so compiler finds them without -I flags
+mkdir -p third-party/tbb
+ln -sf "$TBB_INC/tbb" third-party/tbb/tbb
+
 cmake -B build \
   -DCMAKE_TOOLCHAIN_FILE="$NDK_DIR/build/cmake/android.toolchain.cmake" \
   -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM="android-$API_LEVEL" \
   -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$OUTPUT_DIR" \
   -DCMAKE_PREFIX_PATH="$OUTPUT_DIR" \
-  -DCMAKE_CXX_FLAGS="-include time.h -I${TBB_INC}" \
   -DCMAKE_HAVE_LIBC_PTHREAD=ON \
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -DOPENPGL_BUILD_TESTS=OFF -DOPENPGL_BUILD_EXAMPLES=OFF \
@@ -73,7 +68,6 @@ cmake -B build-static \
   -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM="android-$API_LEVEL" \
   -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$OUTPUT_DIR" \
   -DCMAKE_PREFIX_PATH="$OUTPUT_DIR" \
-  -DCMAKE_CXX_FLAGS="-include time.h -I${TBB_INC}" \
   -DCMAKE_HAVE_LIBC_PTHREAD=ON \
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -DOPENPGL_BUILD_TESTS=OFF -DOPENPGL_BUILD_EXAMPLES=OFF \
