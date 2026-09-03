@@ -5,69 +5,71 @@ mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 git clone --depth 1 https://github.com/KhronosGroup/OpenCOLLADA.git src
 cd src
 
-# LibXml2: replace the "else (WIN32)" block with "always use bundled"
-sed -i '/else ()  # if xml2 not found building its local copy from ./Externals/,/endif ()/{
-s/if (WIN32)/# ALL: use bundled LibXML/
-s/message("WARNING: Native LibXml2 not found, taking LibXml from ./Externals")/message("Using bundled LibXML from ./Externals")/
-/message("ERROR: LibXml2 not found/d
-s/else ()  # if xml2 not found.*//d
-}' CMakeLists.txt
+# Fix Windows line endings first (all patches depend on this)
+dos2unix CMakeLists.txt 2>/dev/null || sed -i 's/\r$//' CMakeLists.txt
+dos2unix COLLADABaseUtils/include/COLLADABUhash_map.h 2>/dev/null || sed -i 's/\r$//' COLLADABaseUtils/include/COLLADABUhash_map.h
+dos2unix Externals/LibXML/xmlIO.c 2>/dev/null || sed -i 's/\r$//' Externals/LibXML/xmlIO.c
 
-# Simpler: just replace the entire error message lines
-sed -i 's/message("ERROR: LibXml2 not found, please install xml2 library (for Debian libxml2-dev)")/message("Using bundled LibXML")/' CMakeLists.txt
-sed -i 's/message("ERROR: PCRE not found, please install pcre library")/message("Using bundled PCRE")/' CMakeLists.txt
+# CAUSE: str.replace() patterns used \n + spaces but file has \r\n + tabs.
+# FIX: Use sed with flexible whitespace matching instead of exact Python str.replace().
 
-# Remove the if(WIN32) guard around LibXML bundled build
-python3 -c "
+# LibXml2: remove the if(WIN32)/else/endif guard, keep only the bundled fallback
+# Match: if (WIN32) { ... } else { error } endif → just the bundled fallback
+python3 << 'PYEOF'
 import re
-with open('CMakeLists.txt') as f:
+with open("CMakeLists.txt") as f:
     c = f.read()
 
-# Fix LibXml2: remove if(WIN32)/else/endif, keep just the add_subdirectory
-old = '''\t\tif (WIN32)
-\t\t\tmessage(\"WARNING: Native LibXml2 not found, taking LibXml from ./Externals\")
-\t\t\tadd_subdirectory(\${EXTERNAL_LIBRARIES}/LibXML)
-\t\t\tset(LIBXML2_INCLUDE_DIR
-\t\t\t\t\${libxml_include_dirs}
-\t\t\t)
-\t\t\tset(LIBXML2_LIBRARIES xml)
-\t\telse ()
-\t\t\tmessage(\"ERROR: LibXml2 not found, please install xml2 library (for Debian libxml2-dev)\")
-\t\tendif ()'''
-new = '''\t\tmessage(\"Using bundled LibXML\")
-\t\tadd_subdirectory(\${EXTERNAL_LIBRARIES}/LibXML)
-\t\tset(LIBXML2_INCLUDE_DIR \${libxml_include_dirs})
-\t\tset(LIBXML2_LIBRARIES xml)'''
-c = c.replace(old, new)
+# LibXml2 block: remove if(WIN32)/else/endif, keep just the add_subdirectory
+c = re.sub(
+    r'\t\tif\s*\(WIN32\)\s*\n'
+    r'\t\t\tmessage\("WARNING: Native LibXml2 not found.*?\)\s*\n'
+    r'\t\t\tadd_subdirectory\(\$\{EXTERNAL_LIBRARIES\}/LibXML\)\s*\n'
+    r'\t\t\tset\(LIBXML2_INCLUDE_DIR\s*\n'
+    r'\t\t\t\t\$\{libxml_include_dirs\}\s*\n'
+    r'\t\t\t\)\s*\n'
+    r'\t\t\tset\(LIBXML2_LIBRARIES xml\)\s*\n'
+    r'\t\telse\s*\(\)\s*\n'
+    r'\t\t\tmessage\("ERROR: LibXml2 not found.*?\)\s*\n'
+    r'\t\tendif\s*\(\)',
+    '\t\tmessage("Using bundled LibXML from ./Externals")\n'
+    '\t\tadd_subdirectory(${EXTERNAL_LIBRARIES}/LibXML)\n'
+    '\t\tset(LIBXML2_INCLUDE_DIR ${libxml_include_dirs})\n'
+    '\t\tset(LIBXML2_LIBRARIES xml)',
+    c
+)
 
-# Fix PCRE: remove if(WIN32 OR APPLE)/else/endif
-old = '''\tif (WIN32 OR APPLE)
-\t\tmessage(\"WARNING: Native PCRE not found, taking PCRE from ./Externals\")
-\t\tadd_definitions(-DPCRE_STATIC)
-\t\tadd_subdirectory(\${EXTERNAL_LIBRARIES}/pcre)
-\t\tset(PCRE_INCLUDE_DIR \${libpcre_include_dirs})
-\t\tset(PCRE_LIBRARIES pcre)
-\telse ()
-\t\tmessage(\"ERROR: PCRE not found, please install pcre library\")
-\tendif ()'''
-new = '''\tmessage(\"Using bundled PCRE\")
-\tadd_definitions(-DPCRE_STATIC)
-\tadd_subdirectory(\${EXTERNAL_LIBRARIES}/pcre)
-\tset(PCRE_INCLUDE_DIR \${libpcre_include_dirs})
-\tset(PCRE_LIBRARIES pcre)'''
-c = c.replace(old, new)
+# PCRE block: remove if(WIN32 OR APPLE)/else/endif, keep just the add_subdirectory
+c = re.sub(
+    r'\tif\s*\(WIN32 OR APPLE\)\s*\n'
+    r'\t\tmessage\("WARNING: Native PCRE not found.*?\)\s*\n'
+    r'\t\tadd_definitions\(-DPCRE_STATIC\)\s*\n'
+    r'\t\tadd_subdirectory\(\$\{EXTERNAL_LIBRARIES\}/pcre\)\s*\n'
+    r'\t\tset\(PCRE_INCLUDE_DIR \$\{libpcre_include_dirs\}\)\s*\n'
+    r'\t\tset\(PCRE_LIBRARIES pcre\)\s*\n'
+    r'\telse\s*\(\)\s*\n'
+    r'\t\tmessage\("ERROR: PCRE not found.*?\)\s*\n'
+    r'\tendif\s*\(\)',
+    '\tmessage("Using bundled PCRE from ./Externals")\n'
+    '\tadd_definitions(-DPCRE_STATIC)\n'
+    '\tadd_subdirectory(${EXTERNAL_LIBRARIES}/pcre)\n'
+    '\tset(PCRE_INCLUDE_DIR ${libpcre_include_dirs})\n'
+    '\tset(PCRE_LIBRARIES pcre)',
+    c
+)
 
-with open('CMakeLists.txt', 'w') as f:
+with open("CMakeLists.txt", "w") as f:
     f.write(c)
-print('Patched CMakeLists.txt')
-"
+print("Patched CMakeLists.txt (regex-based, handles any whitespace)")
+PYEOF
 
-# Fix tr1/unordered_map → unordered_map (Android NDK has no tr1)
+# Fix tr1/unordered_map → unordered_map
 sed -i 's|#include <tr1/unordered_map>|#include <unordered_map>|g' COLLADABaseUtils/include/COLLADABUhash_map.h
 sed -i 's|std::tr1::|std::|g' COLLADABaseUtils/include/COLLADABUhash_map.h
 
 # Add missing POSIX headers to Externals LibXML
 sed -i '1i #include <unistd.h>\n#include <fcntl.h>\n#include <sys/types.h>\n#include <sys/stat.h>' Externals/LibXML/xmlIO.c
+sed -i '1i #include <unistd.h>\n#include <fcntl.h>\n#include <sys/types.h>\n#include <sys/stat.h>\n#include <sys/socket.h>\n#include <sys/select.h>\n#include <netinet/in.h>\n#include <arpa/inet.h>\n#include <netdb.h>' Externals/LibXML/nanohttp.c
 
 COMMON_FLAGS=(
   -DCMAKE_TOOLCHAIN_FILE="$NDK_DIR/build/cmake/android.toolchain.cmake"
