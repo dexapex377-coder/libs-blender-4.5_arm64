@@ -63,6 +63,21 @@ with open("CMakeLists.txt", "w") as f:
 print("Patched CMakeLists.txt (regex-based, handles any whitespace)")
 PYEOF
 
+# Fix wsockcompat.h: wrap entire file with #ifdef _WIN32 (only needed on Windows)
+python3 << 'PYEOF2'
+import os
+path = "Externals/LibXML/include/wsockcompat.h"
+if os.path.exists(path):
+    with open(path, "r") as f:
+        content = f.read()
+    if "#ifdef _WIN32" not in content.split("\n")[0:3]:
+        with open(path, "w") as f:
+            f.write("#ifndef _WIN32\n/* Not Windows - skip wsockcompat */\n#else\n" + content + "\n#endif\n")
+        print("Patched wsockcompat.h")
+    else:
+        print("Already patched")
+PYEOF2
+
 # Fix tr1/unordered_map → unordered_map
 sed -i 's|#include <tr1/unordered_map>|#include <unordered_map>|g' COLLADABaseUtils/include/COLLADABUhash_map.h
 sed -i 's|std::tr1::|std::|g' COLLADABaseUtils/include/COLLADABUhash_map.h

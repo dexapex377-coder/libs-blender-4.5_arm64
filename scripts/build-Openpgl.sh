@@ -11,41 +11,55 @@ cat > force_includes.h << 'HDR'
 #include <cstdint>
 HDR
 
+# Remove bundled FindTBB.cmake (it's broken for cross-compile anyway)
 rm -f cmake/FindTBB.cmake
 
 # CAUSE: NDK r26d toolchain forces CMAKE_FIND_ROOT_PATH_MODE_PACKAGE=ONLY,
-# which makes find_package() ignore CMAKE_PREFIX_PATH for non-sysroot paths.
-# FIX: Replace find_package(TBB) with direct TBB import using known paths.
-# NOTE: This patch must be updated if OpenPGL changes its TBB version requirement.
+# which prevents find_package(CONFIG) from searching CMAKE_PREFIX_PATH.
+# Even passing -DTBB_DIR or -DCMAKE_PREFIX_PATH doesn't help.
+# FIX: Bypass find_package entirely. Import TBB targets manually from known paths.
 python3 << 'PYEOF'
+import re
 with open("CMakeLists.txt") as f:
     c = f.read()
 
-old = """FIND_PACKAGE(TBB REQUIRED ${OPENPGL_TBB_COMPONENT})"""
+# Replace the entire TBB find block with direct target import
+old_block = """SET(OPENPGL_TBB_COMPONENT "tbb" CACHE STRING "The TBB component/library name.")
 
-new = """# Cross-compile fix: NDK toolchain forces FIND_ROOT_PATH_MODE_PACKAGE=ONLY,
-# which prevents find_package from finding TBB in CMAKE_PREFIX_PATH.
-# Import TBB directly from the known install path.
-set(TBB_DIR_ENV "$ENV{TBB_DIR}")
-if(NOT TBB_DIR AND TBB_DIR_ENV)
-  set(TBB_DIR "${TBB_DIR_ENV}")
+if (NOT ${OPENPGL_TBB_ROOT} STREQUAL "")
+    set(TBB_FIND_PACKAGE_OPTION "NO_DEFAULT_PATH")
+    set(TBB_ROOT ${OPENPGL_TBB_ROOT})
+    list(APPEND CMAKE_PREFIX_PATH ${OPENPGL_TBB_ROOT})
 endif()
-if(TBB_DIR)
-  find_package(TBB CONFIG PATHS "${TBB_DIR}" NO_DEFAULT_PATH)
-else()
-  find_package(TBB REQUIRED ${OPENPGL_TBB_COMPONENT})
-endif()
-if(NOT TBB_FOUND)
-  message(FATAL_ERROR "TBB not found. Set -DTBB_DIR=$OUTPUT_DIR/lib/cmake/TBB")
-endif()"""
 
-c = c.replace(old, new)
+FIND_PACKAGE(TBB REQUIRED ${OPENPGL_TBB_COMPONENT})"""
+
+new_block = """# Cross-compile fix: NDK r26d forces FIND_ROOT_PATH_MODE_PACKAGE=ONLY,
+# preventing find_package from finding TBB in CMAKE_PREFIX_PATH.
+# Import TBB targets directly from TBB_DIR.
+set(OPENPGL_TBB_COMPONENT "tbb" CACHE STRING "The TBB component/library name.")
+if(NOT TBB_DIR)
+  set(TBB_DIR "$ENV{TBB_DIR}")
+endif()
+if(NOT TBB_DIR)
+  message(FATAL_ERROR "TBB_DIR not set. Pass -DTBB_DIR=$OUTPUT_DIR/lib/cmake/TBB")
+endif()
+
+# Include TBB config directly
+include("${TBB_DIR}/TBBConfig.cmake" OPTIONAL RESULT TBB_CONFIG_RESULT)
+if(NOT TBB_CONFIG_RESULT)
+  message(FATAL_ERROR "Failed to include TBBConfig.cmake from ${TBB_DIR}")
+endif()
+set(TBB_FOUND TRUE)
+set(TBB_INCLUDE_DIR "${TBB_DIR}/../../../include")
+message(STATUS "TBB imported from ${TBB_DIR} (targets: TBB::tbb)")"""
+
+c = c.replace(old_block, new_block)
 with open("CMakeLists.txt", "w") as f:
     f.write(c)
-print("Patched Openpgl CMakeLists.txt to use TBB_DIR directly")
+print("Patched Openpgl CMakeLists.txt: TBB imported directly from TBB_DIR")
 PYEOF
 
-# Export TBB_DIR for the cmake config mode search
 export TBB_DIR="$OUTPUT_DIR/lib/cmake/TBB"
 
 COMMON_FLAGS=(
