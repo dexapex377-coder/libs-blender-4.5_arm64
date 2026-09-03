@@ -47,6 +47,8 @@ for line in lines:
         new_lines.append('endif()\n')
         new_lines.append('set(TBB_FOUND TRUE)\n')
         new_lines.append('set(TBB_INCLUDE_DIR "${_tbb_inc}")\n')
+        new_lines.append('set(TBB_INCLUDE_DIRS "${_tbb_inc}")\n')
+        new_lines.append('include_directories("${_tbb_inc}")\n')
         skip_block = True
         replaced = True
         continue

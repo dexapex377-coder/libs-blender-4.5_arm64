@@ -79,9 +79,32 @@ if os.path.exists(path):
 PYEOF2
 
 # Fix tr1/unordered_map and tr1/unordered_set → unordered_map/unordered_set in ALL files
-find . -name "*.h" -o -name "*.hpp" -o -name "*.cpp" | xargs sed -i 's|#include <tr1/unordered_map>|#include <unordered_map>|g' 2>/dev/null
-find . -name "*.h" -o -name "*.hpp" -o -name "*.cpp" | xargs sed -i 's|#include <tr1/unordered_set>|#include <unordered_set>|g' 2>/dev/null
-find . -name "*.h" -o -name "*.hpp" -o -name "*.cpp" | xargs sed -i 's|std::tr1::|std::|g' 2>/dev/null
+# NOTE: find with -o requires parentheses or else only last condition is piped to xargs
+find . \( -name "*.h" -o -name "*.hpp" -o -name "*.cpp" \) -print0 | xargs -0 sed -i 's|#include <tr1/unordered_map>|#include <unordered_map>|g' 2>/dev/null
+find . \( -name "*.h" -o -name "*.hpp" -o -name "*.cpp" \) -print0 | xargs -0 sed -i 's|#include <tr1/unordered_set>|#include <unordered_set>|g' 2>/dev/null
+find . \( -name "*.h" -o -name "*.hpp" -o -name "*.cpp" \) -print0 | xargs -0 sed -i 's|std::tr1::|std::|g' 2>/dev/null
+
+# Fix std::hash specialization: libc++ uses __ndk1 ABI namespace
+# COLLADABUHashFunctions.h does namespace std { template<> struct hash<...> }
+# which fails with "not in a namespace enclosing '__ndk1'"
+# Fix: use _LIBCPP_BEGIN_NAMESPACE_STD / _LIBCPP_END_NAMESPACE_STD macros
+python3 << 'PYEOF3'
+import re
+path = "COLLADABaseUtils/include/COLLADABUHashFunctions.h"
+with open(path) as f:
+    c = f.read()
+# Replace "namespace std {" with _LIBCPP_BEGIN_NAMESPACE_STD and matching "}" with _LIBCPP_END_NAMESPACE_STD
+if '_LIBCPP_BEGIN_NAMESPACE_STD' not in c:
+    c = c.replace('namespace std {', '_LIBCPP_BEGIN_NAMESPACE_STD')
+    # Find and replace the matching closing brace for namespace std
+    # The pattern: the hash struct definition ends with }; then }
+    c = re.sub(r'(\};)\s*\n(\})\s*$', r'\1\n_LIBCPP_END_NAMESPACE_STD\n', c, count=1)
+    with open(path, "w") as f:
+        f.write(c)
+    print("Patched COLLADABUHashFunctions.h for libc++ namespace")
+else:
+    print("Already patched")
+PYEOF3
 
 # Add missing POSIX headers to Externals LibXML
 sed -i '1i #include <unistd.h>\n#include <fcntl.h>\n#include <sys/types.h>\n#include <sys/stat.h>' Externals/LibXML/xmlIO.c
