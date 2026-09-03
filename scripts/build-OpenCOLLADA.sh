@@ -78,13 +78,21 @@ if os.path.exists(path):
         print("Already patched")
 PYEOF2
 
-# Fix tr1/unordered_map → unordered_map
-sed -i 's|#include <tr1/unordered_map>|#include <unordered_map>|g' COLLADABaseUtils/include/COLLADABUhash_map.h
-sed -i 's|std::tr1::|std::|g' COLLADABaseUtils/include/COLLADABUhash_map.h
+# Fix tr1/unordered_map → unordered_map in ALL files
+find . -name "*.h" -o -name "*.hpp" -o -name "*.cpp" | xargs sed -i 's|#include <tr1/unordered_map>|#include <unordered_map>|g' 2>/dev/null
+find . -name "*.h" -o -name "*.hpp" -o -name "*.cpp" | xargs sed -i 's|std::tr1::|std::|g' 2>/dev/null
 
 # Add missing POSIX headers to Externals LibXML
 sed -i '1i #include <unistd.h>\n#include <fcntl.h>\n#include <sys/types.h>\n#include <sys/stat.h>' Externals/LibXML/xmlIO.c
 sed -i '1i #include <unistd.h>\n#include <fcntl.h>\n#include <sys/types.h>\n#include <sys/stat.h>\n#include <sys/socket.h>\n#include <sys/select.h>\n#include <netinet/in.h>\n#include <arpa/inet.h>\n#include <netdb.h>' Externals/LibXML/nanohttp.c
+
+# Enable schema support in bundled LibXML (CMakeLists.txt defines)
+# The undefined xmlSchema* symbols mean the schema module isn't being compiled
+cat Externals/LibXML/CMakeLists.txt | grep -i "schema\|XML_SCHEMAS" | head -5 || true
+
+# Skip DAEValidator and COLLADAValidator (tools, not libraries — fail on Android)
+sed -i 's|^add_subdirectory(COLLADAValidator)|# add_subdirectory(COLLADAValidator) # skipped for Android|' CMakeLists.txt
+sed -i 's|^add_subdirectory(DAEValidator)|# add_subdirectory(DAEValidator) # skipped for Android|' CMakeLists.txt
 
 COMMON_FLAGS=(
   -DCMAKE_TOOLCHAIN_FILE="$NDK_DIR/build/cmake/android.toolchain.cmake"

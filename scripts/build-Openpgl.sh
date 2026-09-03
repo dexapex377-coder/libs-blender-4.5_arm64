@@ -14,78 +14,60 @@ HDR
 rm -f cmake/FindTBB.cmake
 
 # CAUSE: NDK r26d forces CMAKE_FIND_ROOT_PATH_MODE_PACKAGE=ONLY.
-# find_package(TBB) can never find TBBConfig.cmake outside sysroot.
-# FIX: Replace find_package with direct include() of TBBConfig.cmake.
+# Every form of find_package(TBB) fails because CMake filters paths through sysroot.
+# Even include(TBBConfig.cmake) fails because TBBConfig internally calls find_dependency().
+# FIX: Create TBB::tbb imported target manually from known install paths.
 python3 << 'PYEOF'
-import re
 with open("CMakeLists.txt") as f:
-    c = f.read()
+    lines = f.readlines()
 
-# Match the TBB component + find block with flexible whitespace
-pattern = (
-    r'SET\(OPENPGL_TBB_COMPONENT\s+"tbb".*?\)'  # line 1
-    r'\s*\n'                                      # newline
-    r'\s*\n'                                      # blank line
-    r'if\s*\(NOT \$\{OPENPGL_TBB_ROOT\}\s+STREQUAL\s+""\)\s*\n'  # if block
-    r'.*?endif\(\)'                               # until endif
-    r'\s*\n'                                      # newline
-    r'\s*\n'                                      # blank line
-    r'FIND_PACKAGE\(TBB\s+REQUIRED\s+\$\{OPENPGL_TBB_COMPONENT\}\)'  # find_package
-)
-
-replacement = """# Cross-compile fix: NDK r26d forces FIND_ROOT_PATH_MODE_PACKAGE=ONLY,
-# preventing find_package from finding TBB outside the sysroot.
-# Import TBB targets directly via include() of TBBConfig.cmake.
-set(OPENPGL_TBB_COMPONENT "tbb" CACHE STRING "The TBB component/library name.")
-if(NOT TBB_DIR)
-  set(TBB_DIR "$ENV{TBB_DIR}")
-endif()
-if(NOT TBB_DIR)
-  message(FATAL_ERROR "TBB_DIR not set. Pass -DTBB_DIR=/path/to/lib/cmake/TBB")
-endif()
-list(PREPEND CMAKE_PREFIX_PATH "${TBB_DIR}/../../..")
-find_package(TBB CONFIG REQUIRED PATHS "${TBB_DIR}/../../.." NO_DEFAULT_PATH COMPONENTS tbb)
-set(TBB_FOUND TRUE)
-message(STATUS "Openpgl: TBB imported from ${TBB_DIR}")"""
-
-c_new = re.sub(pattern, replacement, c, flags=re.DOTALL)
-if c_new == c:
-    # Fallback: simpler line-by-line replacement
-    lines = c.split('\n')
-    new_lines = []
-    skip_until_endif = False
-    replaced = False
-    for i, line in enumerate(lines):
-        stripped = line.strip()
-        if 'SET(OPENPGL_TBB_COMPONENT "tbb"' in stripped:
-            # Start replacement
-            new_lines.append('# Cross-compile fix: NDK r26d FIND_ROOT_PATH_MODE_PACKAGE=ONLY')
-            new_lines.append('# Import TBB directly via find_package with explicit PATHS.')
-            new_lines.append('set(OPENPGL_TBB_COMPONENT "tbb" CACHE STRING "The TBB component/library name.")')
-            new_lines.append('if(NOT TBB_DIR)')
-            new_lines.append('  set(TBB_DIR "$ENV{TBB_DIR}")')
-            new_lines.append('endif()')
-            new_lines.append('if(NOT TBB_DIR)')
-            new_lines.append('  message(FATAL_ERROR "TBB_DIR not set. Pass -DTBB_DIR=/path/to/lib/cmake/TBB")')
-            new_lines.append('endif()')
-            new_lines.append('find_package(TBB CONFIG REQUIRED PATHS "${TBB_DIR}" NO_DEFAULT_PATH COMPONENTS tbb)')
-            new_lines.append('set(TBB_FOUND TRUE)')
-            new_lines.append('message(STATUS "Openpgl: TBB imported from ${TBB_DIR}")')
-            skip_until_endif = True
-            replaced = True
-            continue
-        if skip_until_endif:
-            if stripped.startswith('endif()') or stripped == 'endif()':
-                skip_until_endif = False
-            continue
-        if 'FIND_PACKAGE(TBB REQUIRED' in stripped and replaced:
-            continue  # skip the original find_package
-        new_lines.append(line)
-    c_new = '\n'.join(new_lines)
+new_lines = []
+skip_block = False
+replaced = False
+for line in lines:
+    stripped = line.strip()
+    # Start replacement at SET(OPENPGL_TBB_COMPONENT "tbb"...)
+    if 'SET(OPENPGL_TBB_COMPONENT "tbb"' in stripped and not replaced:
+        new_lines.append('# Cross-compile fix: NDK r26d FIND_ROOT_PATH_MODE_PACKAGE=ONLY\n')
+        new_lines.append('# find_package(TBB) is impossible — create targets manually.\n')
+        new_lines.append('set(OPENPGL_TBB_COMPONENT "tbb" CACHE STRING "The TBB component/library name.")\n')
+        new_lines.append('if(NOT TBB_DIR)\n')
+        new_lines.append('  set(TBB_DIR "$ENV{TBB_DIR}")\n')
+        new_lines.append('endif()\n')
+        new_lines.append('if(NOT TBB_DIR)\n')
+        new_lines.append('  message(FATAL_ERROR "TBB_DIR not set. Pass -DTBB_DIR=/path/to/lib/cmake/TBB")\n')
+        new_lines.append('endif()\n')
+        new_lines.append('# Import TBB targets directly (bypass find_package)\n')
+        new_lines.append('if(NOT TARGET TBB::tbb)\n')
+        new_lines.append('  add_library(TBB::tbb SHARED IMPORTED)\n')
+        new_lines.append('  set_target_properties(TBB::tbb PROPERTIES\n')
+        new_lines.append('    IMPORTED_LOCATION "${TBB_DIR}/../../../lib/libtbb.so"\n')
+        new_lines.append('    INTERFACE_INCLUDE_DIRECTORIES "${TBB_DIR}/../../../include"\n')
+        new_lines.append('  )\n')
+        new_lines.append('  add_library(TBB::tbbmalloc SHARED IMPORTED)\n')
+        new_lines.append('  set_target_properties(TBB::tbbmalloc PROPERTIES\n')
+        new_lines.append('    IMPORTED_LOCATION "${TBB_DIR}/../../../lib/libtbbmalloc.so"\n')
+        new_lines.append('  )\n')
+        new_lines.append('endif()\n')
+        new_lines.append('set(TBB_FOUND TRUE)\n')
+        new_lines.append('set(TBB_INCLUDE_DIR "${TBB_DIR}/../../../include")\n')
+        new_lines.append('message(STATUS "Openpgl: TBB targets created from ${TBB_DIR}")\n')
+        skip_block = True
+        replaced = True
+        continue
+    # Skip the original TBB block (SET...TBB_COMPONENT through endif())
+    if skip_block:
+        if stripped == 'endif()':
+            skip_block = False
+        continue
+    # Skip the original FIND_PACKAGE(TBB REQUIRED...)
+    if 'FIND_PACKAGE(TBB REQUIRED' in stripped and replaced:
+        continue
+    new_lines.append(line)
 
 with open("CMakeLists.txt", "w") as f:
-    f.write(c_new)
-print("Patched Openpgl CMakeLists.txt for TBB cross-compile")
+    f.writelines(new_lines)
+print("Patched Openpgl: TBB targets created manually (no find_package)")
 PYEOF
 
 export TBB_DIR="$OUTPUT_DIR/lib/cmake/TBB"
