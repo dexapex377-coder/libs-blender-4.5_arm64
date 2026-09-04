@@ -12,7 +12,7 @@ with open(h) as f: content = f.read()
 if '_OBL_NANOSLEEP_FIX' in content: print('Already patched'); sys.exit(0)
 idx = content.find('while (nanosleep')
 if idx < 0: print('WARNING: not found'); sys.exit(0)
-content = content[:idx] + 'struct timespec;\nint nanosleep(const struct timespec *, struct timespec *);\n// _OBL_NANOSLEEP_FIX\n' + content[idx:]
+content = content[:idx] + 'int nanosleep(const struct timespec *, struct timespec *);\n// _OBL_NANOSLEEP_FIX\n' + content[idx:]
 with open(h, 'w') as f: f.write(content)
 print(f'Patched {h}')
 " "$PTHREAD_H"
@@ -26,6 +26,7 @@ COMMON_FLAGS=(
   -DCMAKE_PREFIX_PATH="$OUTPUT_DIR"
   -DCMAKE_FIND_ROOT_PATH="$OUTPUT_DIR"
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+  -DCMAKE_HAVE_LIBC_PTHREAD=ON
   -DOCIO_BUILD_APPS=OFF -DOCIO_BUILD_TESTS=OFF -DOCIO_BUILD_PYGLUE=OFF
   -DOCIO_BUILD_GPUDELEGATES=OFF -DOCIO_INSTALL_EXT_DIR=OFF
   -DOCIO_USE_SSE2=OFF -DOCIO_USE_SSE4=OFF -DOCIO_USE_AVX=OFF -DOCIO_USE_AVX2=OFF
@@ -36,6 +37,7 @@ COMMON_FLAGS=(
   -DCMAKE_DISABLE_FIND_PACKAGE_minizip-ng=TRUE
   -DCMAKE_DISABLE_FIND_PACKAGE_pybind11=TRUE
   -DCMAKE_DISABLE_FIND_PACKAGE_Python=TRUE
+  -DOCIO_BUILD_PYTHON=OFF
 )
 cmake -B build -DBUILD_SHARED_LIBS=ON "${COMMON_FLAGS[@]}"
 cmake --build build -j$(nproc)
