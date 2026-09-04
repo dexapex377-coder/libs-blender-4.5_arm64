@@ -4,10 +4,10 @@ NDK_DIR="$1"; OUTPUT_DIR="$2"; BUILD_DIR="$3"; API_LEVEL="${4:-28}"
 mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 
 # Fix NDK r29 libc++ bug: nanosleep undeclared in __thread/support/pthread.h
-# Declare nanosleep WITHOUT including <time.h> (which breaks struct tm in <locale>)
+# Insert declaration AFTER #pragma once but BEFORE the nanosleep call at line ~198
 PTHREAD_H="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/c++/v1/__thread/support/pthread.h"
 python3 << PYEOF
-import os, sys
+import os, sys, re
 h = "$PTHREAD_H"
 if not h or not os.path.exists(h):
     print(f"pthread.h not found: {h}")
@@ -17,20 +17,28 @@ with open(h) as f:
 if "_OBL_NANOSLEEP_DECL" in c:
     print("Already patched")
 else:
-    patch = """// _OBL_NANOSLEEP_DECL: nanosleep undeclared in NDK r29 libc++ pthread.h
+    # Insert after #pragma once, before first use of nanosleep
+    marker = "#pragma once"
+    if marker in c:
+        decl = """// _OBL_NANOSLEEP_DECL: nanosleep undeclared in NDK r29 libc++ pthread.h
+#ifndef _OBL_NANOSLEEP_DECL
+#define _OBL_NANOSLEEP_DECL
 #ifdef __cplusplus
 extern "C" {
 #endif
-struct timespec;
-int nanosleep(const struct timespec *__rqtp, struct timespec *__rmtp);
+int nanosleep(const struct timespec *, struct timespec *);
 #ifdef __cplusplus
 }
 #endif
+#endif
+
 """
-    c = patch + c
-    with open(h, 'w') as f:
-        f.write(c)
-    print(f"Patched {h}: added nanosleep declaration (no time.h include)")
+        c = c.replace(marker, marker + "\n" + decl, 1)
+        with open(h, 'w') as f:
+            f.write(c)
+        print(f"Patched {h}: inserted nanosleep decl after #pragma once")
+    else:
+        print(f"WARNING: #pragma once not found in {h}")
 PYEOF
 
 git clone --depth 1 --branch v2.5.16.0 https://github.com/AcademySoftwareFoundation/OpenImageIO.git src
