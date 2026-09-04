@@ -37,6 +37,9 @@ cat > "$NDK_BIN/clang++" << 'WRAPPER_EOF'
 exec "$(dirname "$0")/clang-21" -include time.h "$@"
 WRAPPER_EOF
 chmod +x "$NDK_BIN/clang++"
+# Fix NDK r29 libc++ <locale>: add #include <time.h> for struct tm
+bash "$(dirname "$0")/patch-locale-tm.sh" "$NDK_DIR"
+
 
 git clone --depth 1 --branch v2.3.2 https://github.com/AcademySoftwareFoundation/OpenColorIO.git src
 cd src
