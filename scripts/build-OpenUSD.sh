@@ -4,21 +4,8 @@ NDK_DIR="$1"; OUTPUT_DIR="$2"; BUILD_DIR="$3"; API_LEVEL="${4:-28}"
 mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 
 # Fix NDK r29 libc++ bug: nanosleep undeclared in __thread/support/pthread.h
-PTHREAD_H="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/c++/v1/__thread/support/pthread.h"
-python3 << PYEOF
-import os, sys
-h = "$PTHREAD_H"
-if not h or not os.path.exists(h):
-    print(f"pthread.h not found: {h}"); sys.exit(0)
-with open(h) as f: c = f.read()
-if "_OBL_NANOSLEEP_DECL" in c:
-    print("Already patched")
-else:
-    decl = '// _OBL_NANOSLEEP_DECL: nanosleep undeclared in NDK r29 libc++ pthread.h\n#ifndef _OBL_NANOSLEEP_DECL\n#define _OBL_NANOSLEEP_DECL\n#ifdef __cplusplus\nextern "C" {\n#endif\nint nanosleep(const struct timespec *, struct timespec *);\n#ifdef __cplusplus\n}\n#endif\n#endif\n\n'
-    c = decl + c
-    with open(h, 'w') as f: f.write(c)
-    print(f"Patched {h}: added nanosleep decl at top")
-PYEOF
+# Force-include <time.h> via cmake flags (patching pthread.h breaks struct tm in <locale>)
+NANOSLEEP_FIX="-include time.h"
 
 git clone --depth 1 --branch v24.11 https://github.com/PixarAnimationStudios/OpenUSD.git src
 cd src
@@ -29,6 +16,8 @@ COMMON_FLAGS=(
   -DCMAKE_PREFIX_PATH="$OUTPUT_DIR"
   -DCMAKE_FIND_ROOT_PATH="$OUTPUT_DIR"
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+  -DCMAKE_C_FLAGS="$NANOSLEEP_FIX"
+  -DCMAKE_CXX_FLAGS="$NANOSLEEP_FIX"
   -DPXR_BUILD_TESTS=OFF -DPXR_BUILD_EXAMPLES=OFF -DPXR_BUILD_TUTORIALS=OFF
   -DPXR_BUILD_IMAGING=OFF -DPXR_BUILD_USD_TOOLS=OFF -DPXR_BUILD_DOCUMENTATION=OFF
   -DPXR_ENABLE_PTEX_SUPPORT=OFF -DPXR_ENABLE_OPENVDB_SUPPORT=OFF
