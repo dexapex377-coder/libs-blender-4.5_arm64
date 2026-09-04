@@ -36,7 +36,7 @@ NDK_BIN="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin"
 rm -f "$NDK_BIN/clang++"
 cat > "$NDK_BIN/clang++" << 'WRAPPER_EOF'
 #!/bin/bash
-exec "$(dirname "$0")/clang-21" -include ctime "$@"
+exec "$(dirname "$0")/clang-21" -include time.h "$@"
 WRAPPER_EOF
 chmod +x "$NDK_BIN/clang++"
 
