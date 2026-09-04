@@ -5,38 +5,15 @@ NDK_DIR="$1"; OUTPUT_DIR="$2"; BUILD_DIR="$3"; API_LEVEL="${4:-28}"
 mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 
 # Fix NDK r29 libc++ bug: nanosleep undeclared in __thread/support/pthread.h
-# Insert extern "C" nanosleep forward-decl right before the call (not at top to avoid breaking tm)
-PTHREAD_H="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/c++/v1/__thread/support/pthread.h"
-python3 -c "
-import sys
-h = sys.argv[1]
-with open(h) as f:
-    lines = f.readlines()
-if any('_OBL_NANOSLEEP_FIX' in l for l in lines):
-    print('Already patched'); sys.exit(0)
-target = -1
-for i, line in enumerate(lines):
-    if 'nanosleep(' in line:
-        target = i; break
-if target < 0:
-    print('WARNING: nanosleep not found'); sys.exit(0)
-decl = [
-    '// _OBL_NANOSLEEP_FIX: nanosleep undeclared in NDK r29 libc++\n',
-    '#ifdef __cplusplus\n',
-    'extern \"C\" {\n',
-    '#endif\n',
-    'int nanosleep(const struct timespec *, struct timespec *);\n',
-    '#ifdef __cplusplus\n',
-    '}\n',
-    '#endif\n',
-    '\n',
-]
-for j, l in enumerate(decl):
-    lines.insert(target + j, l)
-with open(h, 'w') as f:
-    f.writelines(lines)
-print(f'Patched {h}: inserted nanosleep decl before line {target+1}')
-" "$PTHREAD_H"
+# Insert #include <time.h> at line 1 of libc++ __config (included by ALL C++ headers)
+LIBCXX_CONFIG="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/c++/v1/__config"
+if [ -f "$LIBCXX_CONFIG" ]; then
+  if ! grep -q '_OBL_NANOSLEEP_FIX' "$LIBCXX_CONFIG"; then
+    sed -i '1i // _OBL_NANOSLEEP_FIX: force-include time.h for nanosleep in NDK r29\n#include <time.h>' "$LIBCXX_CONFIG" && echo "Patched $LIBCXX_CONFIG" || echo "sed failed"
+  else
+    echo "Already patched"
+  fi
+fi
 
 git clone --depth 1 --branch v2.5.16.0 https://github.com/AcademySoftwareFoundation/OpenImageIO.git src
 cd src
