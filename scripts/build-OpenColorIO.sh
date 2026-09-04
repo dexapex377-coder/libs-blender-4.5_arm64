@@ -4,40 +4,20 @@ NDK_DIR="$1"; OUTPUT_DIR="$2"; BUILD_DIR="$3"; API_LEVEL="${4:-28}"
 mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 
 # Fix NDK r29 libc++ bug: nanosleep undeclared in __thread/support/pthread.h
-# Insert declaration AFTER #pragma once but BEFORE the nanosleep call at line ~198
 PTHREAD_H="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/c++/v1/__thread/support/pthread.h"
 python3 << PYEOF
-import os, sys, re
+import os, sys
 h = "$PTHREAD_H"
 if not h or not os.path.exists(h):
-    print(f"pthread.h not found: {h}")
-    sys.exit(0)
-with open(h) as f:
-    c = f.read()
+    print(f"pthread.h not found: {h}"); sys.exit(0)
+with open(h) as f: c = f.read()
 if "_OBL_NANOSLEEP_DECL" in c:
     print("Already patched")
 else:
-    marker = "#pragma once"
-    if marker in c:
-        decl = """// _OBL_NANOSLEEP_DECL: nanosleep undeclared in NDK r29 libc++ pthread.h
-#ifndef _OBL_NANOSLEEP_DECL
-#define _OBL_NANOSLEEP_DECL
-#ifdef __cplusplus
-extern "C" {
-#endif
-int nanosleep(const struct timespec *, struct timespec *);
-#ifdef __cplusplus
-}
-#endif
-#endif
-
-"""
-        c = c.replace(marker, marker + "\n" + decl, 1)
-        with open(h, 'w') as f:
-            f.write(c)
-        print(f"Patched {h}: inserted nanosleep decl after #pragma once")
-    else:
-        print(f"WARNING: #pragma once not found in {h}")
+    decl = '// _OBL_NANOSLEEP_DECL: nanosleep undeclared in NDK r29 libc++ pthread.h\n#ifndef _OBL_NANOSLEEP_DECL\n#define _OBL_NANOSLEEP_DECL\n#ifdef __cplusplus\nextern "C" {\n#endif\nint nanosleep(const struct timespec *, struct timespec *);\n#ifdef __cplusplus\n}\n#endif\n#endif\n\n'
+    c = decl + c
+    with open(h, 'w') as f: f.write(c)
+    print(f"Patched {h}: added nanosleep decl at top")
 PYEOF
 
 git clone --depth 1 --branch v2.3.2 https://github.com/AcademySoftwareFoundation/OpenColorIO.git src

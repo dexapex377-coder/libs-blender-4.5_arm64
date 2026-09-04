@@ -14,13 +14,10 @@ with open(h) as f: c = f.read()
 if "_OBL_NANOSLEEP_DECL" in c:
     print("Already patched")
 else:
-    m = "#pragma once"
-    if m in c:
-        d = '// _OBL_NANOSLEEP_DECL\n#ifndef _OBL_NANOSLEEP_DECL\n#define _OBL_NANOSLEEP_DECL\n#ifdef __cplusplus\nextern "C" {\n#endif\nint nanosleep(const struct timespec *, struct timespec *);\n#ifdef __cplusplus\n}\n#endif\n#endif\n\n'
-        c = c.replace(m, m + "\n" + d, 1)
-        with open(h, 'w') as f: f.write(c)
-        print(f"Patched {h}")
-    else: print(f"WARNING: #pragma once not found")
+    decl = '// _OBL_NANOSLEEP_DECL: nanosleep undeclared in NDK r29 libc++ pthread.h\n#ifndef _OBL_NANOSLEEP_DECL\n#define _OBL_NANOSLEEP_DECL\n#ifdef __cplusplus\nextern "C" {\n#endif\nint nanosleep(const struct timespec *, struct timespec *);\n#ifdef __cplusplus\n}\n#endif\n#endif\n\n'
+    c = decl + c
+    with open(h, 'w') as f: f.write(c)
+    print(f"Patched {h}: added nanosleep decl at top")
 PYEOF
 git clone --depth 1 https://github.com/OpenPathGuidingLibrary/openpgl.git src
 cd src
