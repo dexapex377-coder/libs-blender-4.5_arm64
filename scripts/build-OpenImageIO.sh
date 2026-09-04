@@ -4,13 +4,32 @@ NDK_DIR="$1"; OUTPUT_DIR="$2"; BUILD_DIR="$3"; API_LEVEL="${4:-28}"
 mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 
 # Fix NDK r29 libc++ bug: nanosleep undeclared in __thread/support/pthread.h
-# Patch NDK toolchain to add -include time.h to all C/C++ compilations
+# Strategy: create a wrapper time header that ensures nanosleep is always declared,
+# then patch the NDK toolchain to force-include it
+FIX_HEADER="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/_obl_time_fix.h"
+cat > "$FIX_HEADER" << 'FIXEOF'
+// _OBL: Force-include time.h + declare nanosleep for NDK r29 libc++ bug
+#ifndef _OBL_TIME_FIX_H
+#define _OBL_TIME_FIX_H
+#include <time.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
+// Re-declare nanosleep in case time.h hides it behind __ANDROID_API__ guards
+int nanosleep(const struct timespec* __duration, struct timespec* __remainder);
+#ifdef __cplusplus
+}
+#endif
+#endif
+FIXEOF
+
 TOOLCHAIN="$NDK_DIR/build/cmake/android.toolchain.cmake"
-if ! grep -q '_OBL_TIME_FIX' "$TOOLCHAIN" 2>/dev/null; then
+if [ -f "$TOOLCHAIN" ] && ! grep -q '_OBL_TIME_FIX' "$TOOLCHAIN"; then
+  echo '' >> "$TOOLCHAIN"
   echo '# _OBL_TIME_FIX' >> "$TOOLCHAIN"
-  echo 'string(APPEND CMAKE_C_FLAGS " -include time.h")' >> "$TOOLCHAIN"
-  echo 'string(APPEND CMAKE_CXX_FLAGS " -include time.h")' >> "$TOOLCHAIN"
-  echo "Patched NDK toolchain for -include time.h"
+  echo 'set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -include _obl_time_fix.h")' >> "$TOOLCHAIN"
+  echo 'set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -include _obl_time_fix.h")' >> "$TOOLCHAIN"
+  echo "Patched NDK toolchain for _obl_time_fix.h"
 fi
 
 git clone --depth 1 --branch v2.5.16.0 https://github.com/AcademySoftwareFoundation/OpenImageIO.git src

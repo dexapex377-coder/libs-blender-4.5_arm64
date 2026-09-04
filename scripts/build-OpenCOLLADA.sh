@@ -204,4 +204,4 @@ cmake -B build-static -DBUILD_SHARED_LIBS=OFF "${COMMON_FLAGS[@]}"
 cmake --build build-static -j$(nproc)
 cmake --install build-static
 echo "OpenCOLLADA built"
-ls -lh "$OUTPUT_DIR/lib/"libOpenCOLLADA*
+find "$OUTPUT_DIR/lib" -name "libOpenCOLLADA*" | head -10

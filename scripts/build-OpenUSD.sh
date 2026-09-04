@@ -4,12 +4,23 @@ NDK_DIR="$1"; OUTPUT_DIR="$2"; BUILD_DIR="$3"; API_LEVEL="${4:-28}"
 mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 
 # Fix NDK r29 libc++ bug: nanosleep undeclared in __thread/support/pthread.h
+FIX_HEADER="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/_obl_time_fix.h"
+cat > "$FIX_HEADER" << 'FIXEOF'
+#ifndef _OBL_TIME_FIX_H
+#define _OBL_TIME_FIX_H
+#include <time.h>
+#ifdef __cplusplus
+extern "C" { int nanosleep(const struct timespec*, struct timespec*); }
+#endif
+#endif
+FIXEOF
 TOOLCHAIN="$NDK_DIR/build/cmake/android.toolchain.cmake"
-if ! grep -q '_OBL_TIME_FIX' "$TOOLCHAIN" 2>/dev/null; then
+if [ -f "$TOOLCHAIN" ] && ! grep -q '_OBL_TIME_FIX' "$TOOLCHAIN"; then
+  echo '' >> "$TOOLCHAIN"
   echo '# _OBL_TIME_FIX' >> "$TOOLCHAIN"
-  echo 'string(APPEND CMAKE_C_FLAGS " -include time.h")' >> "$TOOLCHAIN"
-  echo 'string(APPEND CMAKE_CXX_FLAGS " -include time.h")' >> "$TOOLCHAIN"
-  echo "Patched NDK toolchain for -include time.h"
+  echo 'set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -include _obl_time_fix.h")' >> "$TOOLCHAIN"
+  echo 'set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -include _obl_time_fix.h")' >> "$TOOLCHAIN"
+  echo "Patched NDK toolchain for _obl_time_fix.h"
 fi
 
 git clone --depth 1 --branch v24.11 https://github.com/PixarAnimationStudios/OpenUSD.git src
