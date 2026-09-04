@@ -9,9 +9,9 @@ for prog in clang clang++ clang-cpp; do
   real="$NDK_BIN/$prog"
   if [ -f "$real" ] && [ ! -f "${real}.real" ]; then
     cp "$real" "${real}.real"
-    printf '#!/bin/bash\nexec "%s" -include time.h "$@"\n' "${real}.real" > "$real"
+    printf '#!/bin/bash\nexec "%s" -D__ANDROID_API__=%s -include time.h "$@"\n' "${real}.real" "$API_LEVEL" > "$real"
     chmod +x "$real"
-    echo "Wrapped $real"
+    echo "Wrapped $real (API=$API_LEVEL)"
   fi
 done
 

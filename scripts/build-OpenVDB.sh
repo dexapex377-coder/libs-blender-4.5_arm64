@@ -9,13 +9,11 @@ for prog in clang clang++ clang-cpp; do
   real="$NDK_BIN/$prog"
   if [ -f "$real" ] && [ ! -f "${real}.real" ]; then
     cp "$real" "${real}.real"
-    printf '#!/bin/bash\nexec "%s" -include time.h "$@"\n' "${real}.real" > "$real"
+    printf '#!/bin/bash\nexec "%s" -D__ANDROID_API__=%s -include time.h "$@"\n' "${real}.real" "$API_LEVEL" > "$real"
     chmod +x "$real"
-    echo "Wrapped $real"
+    echo "Wrapped $real (API=$API_LEVEL)"
   fi
-done
-
-git clone --depth 1 --branch v11.0.0 https://github.com/AcademySoftwareFoundation/openvdb.git src
+done --depth 1 --branch v11.0.0 https://github.com/AcademySoftwareFoundation/openvdb.git src
 cd src
 COMMON_FLAGS=(
   -DCMAKE_TOOLCHAIN_FILE="$NDK_DIR/build/cmake/android.toolchain.cmake"

@@ -5,15 +5,15 @@ NDK_DIR="$1"; OUTPUT_DIR="$2"; BUILD_DIR="$3"; API_LEVEL="${4:-28}"
 mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 
 # Fix NDK r29 libc++ bug: nanosleep undeclared in __thread/support/pthread.h
-# Wrap the NDK compiler to always add -include time.h — this is immune to cmake overrides
+# Wrap compiler: -D__ANDROID_API__ MUST come before -include time.h for nanosleep to be visible
 NDK_BIN="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin"
 for prog in clang clang++ clang-cpp; do
   real="$NDK_BIN/$prog"
   if [ -f "$real" ] && [ ! -f "${real}.real" ]; then
     cp "$real" "${real}.real"
-    printf '#!/bin/bash\nexec "%s" -include time.h "$@"\n' "${real}.real" > "$real"
+    printf '#!/bin/bash\nexec "%s" -D__ANDROID_API__=%s -include time.h "$@"\n' "${real}.real" "$API_LEVEL" > "$real"
     chmod +x "$real"
-    echo "Wrapped $real"
+    echo "Wrapped $real (API=$API_LEVEL)"
   fi
 done
 

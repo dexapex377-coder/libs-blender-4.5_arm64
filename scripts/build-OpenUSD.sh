@@ -4,15 +4,15 @@ set -euo pipefail
 NDK_DIR="$1"; OUTPUT_DIR="$2"; BUILD_DIR="$3"; API_LEVEL="${4:-28}"
 mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 
-# Fix NDK r29 libc++ bug: wrap compiler to add -include time.h
+# Fix NDK r29 libc++ bug: wrap compiler to add -D__ANDROID_API__ + -include time.h
 NDK_BIN="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin"
 for prog in clang clang++ clang-cpp; do
   real="$NDK_BIN/$prog"
   if [ -f "$real" ] && [ ! -f "${real}.real" ]; then
     cp "$real" "${real}.real"
-    printf '#!/bin/bash\nexec "%s" -include time.h "$@"\n' "${real}.real" > "$real"
+    printf '#!/bin/bash\nexec "%s" -D__ANDROID_API__=%s -include time.h "$@"\n' "${real}.real" "$API_LEVEL" > "$real"
     chmod +x "$real"
-    echo "Wrapped $real"
+    echo "Wrapped $real (API=$API_LEVEL)"
   fi
 done
 
