@@ -7,17 +7,19 @@ cd src
 
 rm -f cmake/FindTBB.cmake
 
-# Find actual TBB include dir by locating concurrent_vector.h
-TBB_HEADER=$(find "$OUTPUT_DIR/include" -name "concurrent_vector.h" -print -quit 2>/dev/null || true)
-if [ -z "$TBB_HEADER" ]; then
-  echo "ERROR: TBB headers not found under $OUTPUT_DIR/include"
-  ls -la "$OUTPUT_DIR/include/" 2>/dev/null || echo "No include dir"
+# Find actual TBB include dir — need "tbb/tbb.h" to resolve
+# TBB 2021.13 installs headers to both include/tbb/ and include/oneapi/tbb/
+TBB_INC="$OUTPUT_DIR/include"
+if [ -f "$TBB_INC/tbb/tbb.h" ]; then
+  TBB_INCLUDE_DIR="$TBB_INC"
+elif [ -f "$TBB_INC/oneapi/tbb/tbb.h" ]; then
+  TBB_INCLUDE_DIR="$TBB_INC/oneapi"
+else
+  echo "ERROR: TBB headers not found under $TBB_INC"
+  find "$TBB_INC" -name "tbb.h" 2>/dev/null
   exit 1
 fi
-# concurrent_vector.h is at e.g. $OUTPUT_DIR/include/tbb/concurrent_vector.h or oneapi/tbb/concurrent_vector.h
-TBB_INCLUDE_DIR=$(dirname "$(dirname "$TBB_HEADER")")
-echo "Found TBB header: $TBB_HEADER"
-echo "TBB include dir (parent of tbb/): $TBB_INCLUDE_DIR"
+echo "TBB include dir: $TBB_INCLUDE_DIR"
 
 # Create a fake TBBConfig.cmake that find_package(TBB CONFIG) will find
 TBB_CMAKE_DIR="$OUTPUT_DIR/lib/cmake/TBB"
