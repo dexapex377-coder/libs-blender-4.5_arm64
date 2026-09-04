@@ -29,23 +29,14 @@ with open(h, 'w') as f: f.write(c)
 print(f"Patched {h}: added nanosleep decl before sleep_for")
 PYEOF
 
-# Fix NDK r29 libc++ <locale> incomplete 'tm': compiler wrapper adds -include ctime
-CXX_WRAPPER="$BUILD_DIR/fix-tm-wrapper.sh"
-cat > "$CXX_WRAPPER" << 'WRAPPER_EOF'
+# Fix NDK r29 libc++ <locale> incomplete 'tm': replace clang++ symlink with wrapper
+NDK_BIN="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin"
+rm -f "$NDK_BIN/clang++"
+cat > "$NDK_BIN/clang++" << 'WRAPPER_EOF'
 #!/bin/bash
-NDK_DIR="$NDK_WRAPPER_NDK_DIR"
-REAL="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++"
-exec "$REAL" -include ctime "$@"
+exec "$(dirname "$0")/clang-21" -include ctime "$@"
 WRAPPER_EOF
-C_WRAPPER="$BUILD_DIR/fix-tm-c-wrapper.sh"
-cat > "$C_WRAPPER" << 'WRAPPER_EOF'
-#!/bin/bash
-NDK_DIR="$NDK_WRAPPER_NDK_DIR"
-REAL="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin/clang"
-exec "$REAL" -include ctime "$@"
-WRAPPER_EOF
-chmod +x "$CXX_WRAPPER" "$C_WRAPPER"
-export NDK_WRAPPER_NDK_DIR="$NDK_DIR"
+chmod +x "$NDK_BIN/clang++"
 
 git clone --depth 1 --branch v2.3.2 https://github.com/AcademySoftwareFoundation/OpenColorIO.git src
 cd src

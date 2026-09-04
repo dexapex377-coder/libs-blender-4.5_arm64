@@ -31,31 +31,20 @@ with open(h, 'w') as f: f.write(c)
 print(f"Patched {h}: added nanosleep decl before sleep_for")
 PYEOF
 
-# Fix NDK r29 libc++ <locale> incomplete 'tm': compiler wrapper adds -include ctime
-CXX_WRAPPER="$BUILD_DIR/fix-tm-wrapper.sh"
-cat > "$CXX_WRAPPER" << 'WRAPPER_EOF'
+# Fix NDK r29 libc++ <locale> incomplete 'tm': replace clang++ symlink with wrapper
+NDK_BIN="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin"
+rm -f "$NDK_BIN/clang++"
+cat > "$NDK_BIN/clang++" << 'WRAPPER_EOF'
 #!/bin/bash
-NDK_DIR="$NDK_WRAPPER_NDK_DIR"
-REAL="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++"
-exec "$REAL" -include ctime "$@"
+exec "$(dirname "$0")/clang-21" -include ctime "$@"
 WRAPPER_EOF
-C_WRAPPER="$BUILD_DIR/fix-tm-c-wrapper.sh"
-cat > "$C_WRAPPER" << 'WRAPPER_EOF'
-#!/bin/bash
-NDK_DIR="$NDK_WRAPPER_NDK_DIR"
-REAL="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin/clang"
-exec "$REAL" -include ctime "$@"
-WRAPPER_EOF
-chmod +x "$CXX_WRAPPER" "$C_WRAPPER"
-export NDK_WRAPPER_NDK_DIR="$NDK_DIR"
+chmod +x "$NDK_BIN/clang++"
 
 git clone --depth 1 --branch v2.5.16.0 https://github.com/AcademySoftwareFoundation/OpenImageIO.git src
 cd src
 mkdir -p build
 cmake -B build \
   -DCMAKE_TOOLCHAIN_FILE="$NDK_DIR/build/cmake/android.toolchain.cmake" \
-  -DCMAKE_CXX_COMPILER="$CXX_WRAPPER" \
-  -DCMAKE_C_COMPILER="$C_WRAPPER" \
   -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM="android-$API_LEVEL" \
   -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$OUTPUT_DIR" \
   -DCMAKE_PREFIX_PATH="$OUTPUT_DIR" \
@@ -74,8 +63,6 @@ cmake --build build -j$(nproc)
 cmake --install build
 cmake -B build-static \
   -DCMAKE_TOOLCHAIN_FILE="$NDK_DIR/build/cmake/android.toolchain.cmake" \
-  -DCMAKE_CXX_COMPILER="$CXX_WRAPPER" \
-  -DCMAKE_C_COMPILER="$C_WRAPPER" \
   -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM="android-$API_LEVEL" \
   -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$OUTPUT_DIR" \
   -DCMAKE_PREFIX_PATH="$OUTPUT_DIR" \
