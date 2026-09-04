@@ -4,15 +4,17 @@ set -euo pipefail
 NDK_DIR="$1"; OUTPUT_DIR="$2"; BUILD_DIR="$3"; API_LEVEL="${4:-28}"
 mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 
-# Fix NDK r29 libc++ bug: insert #include <time.h> at line 1 of libc++ __config
-LIBCXX_CONFIG="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/c++/v1/__config"
-if [ -f "$LIBCXX_CONFIG" ]; then
-  if ! grep -q '_OBL_NANOSLEEP_FIX' "$LIBCXX_CONFIG"; then
-    sed -i '1i // _OBL_NANOSLEEP_FIX\n#include <time.h>' "$LIBCXX_CONFIG" && echo "Patched $LIBCXX_CONFIG" || echo "sed failed"
-  else
-    echo "Already patched"
+# Fix NDK r29 libc++ bug: wrap compiler to add -include time.h
+NDK_BIN="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin"
+for prog in clang clang++ clang-cpp; do
+  real="$NDK_BIN/$prog"
+  if [ -f "$real" ] && [ ! -f "${real}.real" ]; then
+    cp "$real" "${real}.real"
+    printf '#!/bin/bash\nexec "%s" -include time.h "$@"\n' "${real}.real" > "$real"
+    chmod +x "$real"
+    echo "Wrapped $real"
   fi
-fi
+done
 
 git clone --depth 1 --branch v24.11 https://github.com/PixarAnimationStudios/OpenUSD.git src
 cd src
