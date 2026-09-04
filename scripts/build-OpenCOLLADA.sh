@@ -77,12 +77,12 @@ PYEOF2
 find . -type f \( -name "*.h" -o -name "*.hpp" -o -name "*.cpp" -o -name "*.c" -o -name "CMakeLists.txt" \) -print0 | xargs -0 sed -i 's/\r$//'
 
 # Fix tr1/unordered_map and tr1/unordered_set → unordered_map/unordered_set in ALL files
-# Use Python for reliability (find+sed with \r\n can be fragile)
+# Use Python for reliability (handles tabs between # and include)
 python3 << 'PYEOF_fix'
 import os, re
 fixes = [
-    ('#include <tr1/unordered_map>', '#include <unordered_map>'),
-    ('#include <tr1/unordered_set>', '#include <unordered_set>'),
+    ('include <tr1/unordered_map>', 'include <unordered_map>'),
+    ('include <tr1/unordered_set>', 'include <unordered_set>'),
     ('std::tr1::', 'std::'),
 ]
 count = 0
@@ -90,8 +90,11 @@ for root, dirs, files in os.walk('.'):
     for fn in files:
         if fn.endswith(('.h', '.hpp', '.cpp', '.c')):
             path = os.path.join(root, fn)
-            with open(path, 'r', errors='replace') as f:
-                c = f.read()
+            with open(path, 'rb') as f:
+                raw = f.read()
+            # Handle \r\n and BOM
+            c = raw.decode('utf-8-sig', errors='replace')
+            c = c.replace('\r\n', '\n').replace('\r', '\n')
             orig = c
             for old, new in fixes:
                 c = c.replace(old, new)

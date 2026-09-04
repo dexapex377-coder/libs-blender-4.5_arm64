@@ -4,11 +4,11 @@ NDK_DIR="$1"; OUTPUT_DIR="$2"; BUILD_DIR="$3"; API_LEVEL="${4:-28}"
 mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 
 # Fix NDK r29 libc++ bug: nanosleep undeclared in __thread/support/pthread.h
-# Directly declare nanosleep before it's used
+# Insert declaration at top of file (before function bodies), not inside them
 PTHREAD_H="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/c++/v1/__thread/support/pthread.h"
-if [ -f "$PTHREAD_H" ] && ! grep -q 'extern "C" int nanosleep' "$PTHREAD_H"; then
-  sed -i '/while (nanosleep/i #include <time.h>\nextern "C" { int nanosleep(const struct timespec*, struct timespec*); }' "$PTHREAD_H"
-  echo "Patched NDK pthread.h for nanosleep"
+if [ -f "$PTHREAD_H" ] && ! grep -q '_OBL_NANOSLEEP_FIX' "$PTHREAD_H"; then
+  sed -i '1i // _OBL_NANOSLEEP_FIX: forward-declare nanosleep for Android NDK libc++\nextern "C" int nanosleep(const struct timespec*, struct timespec* _Nullable);' "$PTHREAD_H"
+  echo "Patched NDK pthread.h for nanosleep (top of file)"
 fi
 
 git clone --depth 1 --branch v2.5.16.0 https://github.com/AcademySoftwareFoundation/OpenImageIO.git src

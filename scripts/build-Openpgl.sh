@@ -7,18 +7,17 @@ cd src
 
 rm -f cmake/FindTBB.cmake
 
-# Find actual TBB include dir (2021.x may use oneapi/tbb/ or tbb/)
-TBB_INC="$OUTPUT_DIR/include"
-if [ -d "$TBB_INC/oneapi/tbb" ]; then
-  TBB_INCLUDE_DIR="$TBB_INC/oneapi"
-elif [ -d "$TBB_INC/tbb" ]; then
-  TBB_INCLUDE_DIR="$TBB_INC"
-else
-  echo "ERROR: TBB headers not found in $TBB_INC"
-  find "$TBB_INC" -name "concurrent_vector.h" 2>/dev/null
+# Find actual TBB include dir by locating concurrent_vector.h
+TBB_HEADER=$(find "$OUTPUT_DIR/include" -name "concurrent_vector.h" -print -quit 2>/dev/null || true)
+if [ -z "$TBB_HEADER" ]; then
+  echo "ERROR: TBB headers not found under $OUTPUT_DIR/include"
+  ls -la "$OUTPUT_DIR/include/" 2>/dev/null || echo "No include dir"
   exit 1
 fi
-echo "TBB include dir: $TBB_INCLUDE_DIR"
+# concurrent_vector.h is at e.g. $OUTPUT_DIR/include/tbb/concurrent_vector.h or oneapi/tbb/concurrent_vector.h
+TBB_INCLUDE_DIR=$(dirname "$(dirname "$TBB_HEADER")")
+echo "Found TBB header: $TBB_HEADER"
+echo "TBB include dir (parent of tbb/): $TBB_INCLUDE_DIR"
 
 # Create a fake TBBConfig.cmake that find_package(TBB CONFIG) will find
 TBB_CMAKE_DIR="$OUTPUT_DIR/lib/cmake/TBB"
@@ -56,7 +55,6 @@ else()
 endif()
 VEOF
 echo "Created fake TBBConfig.cmake at $TBB_CMAKE_DIR"
-cat "$TBB_CMAKE_DIR/TBBConfig.cmake"
 
 cmake -B build \
   -DCMAKE_TOOLCHAIN_FILE="$NDK_DIR/build/cmake/android.toolchain.cmake" \

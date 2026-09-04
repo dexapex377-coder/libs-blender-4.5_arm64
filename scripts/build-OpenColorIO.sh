@@ -5,9 +5,9 @@ mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 
 # Fix NDK r29 libc++ bug: nanosleep undeclared in __thread/support/pthread.h
 PTHREAD_H="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/c++/v1/__thread/support/pthread.h"
-if [ -f "$PTHREAD_H" ] && ! grep -q 'extern "C" int nanosleep' "$PTHREAD_H"; then
-  sed -i '/while (nanosleep/i #include <time.h>\nextern "C" { int nanosleep(const struct timespec*, struct timespec*); }' "$PTHREAD_H"
-  echo "Patched NDK pthread.h for nanosleep"
+if [ -f "$PTHREAD_H" ] && ! grep -q '_OBL_NANOSLEEP_FIX' "$PTHREAD_H"; then
+  sed -i '1i // _OBL_NANOSLEEP_FIX: forward-declare nanosleep for Android NDK libc++\nextern "C" int nanosleep(const struct timespec*, struct timespec* _Nullable);' "$PTHREAD_H"
+  echo "Patched NDK pthread.h for nanosleep (top of file)"
 fi
 
 git clone --depth 1 --branch v2.3.2 https://github.com/AcademySoftwareFoundation/OpenColorIO.git src
