@@ -7,18 +7,21 @@ mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 # Fix NDK r29 libc++ bug: nanosleep undeclared in __thread/support/pthread.h
 PTHREAD_H="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/c++/v1/__thread/support/pthread.h"
 python3 << PYEOF
-import os, sys
+import sys
 h = "$PTHREAD_H"
-if not h or not os.path.exists(h):
-    print(f"pthread.h not found: {h}"); sys.exit(0)
 with open(h) as f: c = f.read()
-if "_OBL_NANOSLEEP_DECL" in c:
-    print("Already patched")
-else:
-    decl = '// _OBL_NANOSLEEP_DECL: nanosleep undeclared in NDK r29 libc++ pthread.h\n#ifndef _OBL_NANOSLEEP_DECL\n#define _OBL_NANOSLEEP_DECL\n#ifdef __cplusplus\nextern "C" {\n#endif\nint nanosleep(const struct timespec *, struct timespec *);\n#ifdef __cplusplus\n}\n#endif\n#endif\n\n'
-    c = decl + c
-    with open(h, 'w') as f: f.write(c)
-    print(f"Patched {h}: added nanosleep decl at top")
+if "_OBL_SLEEP_FIX" in c:
+    print("Already patched"); sys.exit(0)
+old = 'while (nanosleep(&__ts, &__ts) == -1 && errno == EINTR)\n    ;'
+new = '''{
+    auto __us = static_cast<unsigned int>(__ns.count() / 1000);
+    if (__us > 0) usleep(__us);
+  }'''
+if old not in c:
+    print("WARNING: nanosleep call not found in pthread.h"); sys.exit(0)
+c = c.replace(old, '// _OBL_SLEEP_FIX\n' + new)
+with open(h, 'w') as f: f.write(c)
+print(f"Patched {h}: nanosleep -> usleep")
 PYEOF
 git clone --depth 1 --branch v4.3.3 https://github.com/embree/embree.git src
 cd src

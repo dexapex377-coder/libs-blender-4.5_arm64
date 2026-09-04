@@ -5,17 +5,23 @@ NDK_DIR="$1"; OUTPUT_DIR="$2"; BUILD_DIR="$3"; API_LEVEL="${4:-28}"
 mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 
 PTHREAD_H="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/c++/v1/__thread/support/pthread.h"
-python3 -c "
+python3 << PYEOF
 import sys
-h = sys.argv[1]
-with open(h) as f: content = f.read()
-if '_OBL_NANOSLEEP_FIX' in content: print('Already patched'); sys.exit(0)
-idx = content.find('while (nanosleep')
-if idx < 0: print('WARNING: not found'); sys.exit(0)
-content = content[:idx] + 'int nanosleep(const struct timespec *, struct timespec *);\n// _OBL_NANOSLEEP_FIX\n' + content[idx:]
-with open(h, 'w') as f: f.write(content)
-print(f'Patched {h}')
-" "$PTHREAD_H"
+h = "$PTHREAD_H"
+with open(h) as f: c = f.read()
+if "_OBL_SLEEP_FIX" in c:
+    print("Already patched"); sys.exit(0)
+old = 'while (nanosleep(&__ts, &__ts) == -1 && errno == EINTR)\n    ;'
+new = '''{
+    auto __us = static_cast<unsigned int>(__ns.count() / 1000);
+    if (__us > 0) usleep(__us);
+  }'''
+if old not in c:
+    print("WARNING: nanosleep call not found in pthread.h"); sys.exit(0)
+c = c.replace(old, '// _OBL_SLEEP_FIX\n' + new)
+with open(h, 'w') as f: f.write(c)
+print(f"Patched {h}: nanosleep -> usleep")
+PYEOF
 
 git clone --depth 1 --branch v2.3.2 https://github.com/AcademySoftwareFoundation/OpenColorIO.git src
 cd src
@@ -30,14 +36,13 @@ COMMON_FLAGS=(
   -DOCIO_BUILD_APPS=OFF -DOCIO_BUILD_TESTS=OFF -DOCIO_BUILD_PYGLUE=OFF
   -DOCIO_BUILD_GPUDELEGATES=OFF -DOCIO_INSTALL_EXT_DIR=OFF
   -DOCIO_USE_SSE2=OFF -DOCIO_USE_SSE4=OFF -DOCIO_USE_AVX=OFF -DOCIO_USE_AVX2=OFF
-  -DUSE_PYTHON=OFF
+  -DUSE_PYTHON=OFF -DOCIO_BUILD_PYTHON=OFF
   -DCMAKE_DISABLE_FIND_PACKAGE_expat=TRUE
   -DCMAKE_DISABLE_FIND_PACKAGE_yaml-cpp=TRUE
   -DCMAKE_DISABLE_FIND_PACKAGE_pystring=TRUE
   -DCMAKE_DISABLE_FIND_PACKAGE_minizip-ng=TRUE
   -DCMAKE_DISABLE_FIND_PACKAGE_pybind11=TRUE
   -DCMAKE_DISABLE_FIND_PACKAGE_Python=TRUE
-  -DOCIO_BUILD_PYTHON=OFF
 )
 cmake -B build -DBUILD_SHARED_LIBS=ON "${COMMON_FLAGS[@]}"
 cmake --build build -j$(nproc)
