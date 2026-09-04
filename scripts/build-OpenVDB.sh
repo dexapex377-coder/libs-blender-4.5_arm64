@@ -2,6 +2,7 @@
 # Build OpenVDB for Android ARM64
 set -euo pipefail
 NDK_DIR="$1"; OUTPUT_DIR="$2"; BUILD_DIR="$3"; API_LEVEL="${4:-28}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 
 PTHREAD_H="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/c++/v1/__thread/support/pthread.h"
@@ -38,7 +39,7 @@ exec "$(dirname "$0")/clang-21" -include time.h "$@"
 WRAPPER_EOF
 chmod +x "$NDK_BIN/clang++"
 # Fix NDK r29 libc++ <locale>: add #include <time.h> for struct tm
-bash "$(dirname "$0")/patch-locale-tm.sh" "$NDK_DIR"
+bash "$SCRIPT_DIR/patch-locale-tm.sh" "$NDK_DIR"
 
 
 git clone --depth 1 --branch v11.0.0 https://github.com/AcademySoftwareFoundation/openvdb.git src

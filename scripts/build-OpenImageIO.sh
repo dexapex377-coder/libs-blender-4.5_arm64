@@ -2,6 +2,7 @@
 # Build OpenImageIO for Android ARM64
 set -euo pipefail
 NDK_DIR="$1"; OUTPUT_DIR="$2"; BUILD_DIR="$3"; API_LEVEL="${4:-28}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 
 # Fix NDK r29: nanosleep in global namespace not found from namespace std
@@ -40,7 +41,7 @@ exec "$(dirname "$0")/clang-21" -include time.h "$@"
 WRAPPER_EOF
 chmod +x "$NDK_BIN/clang++"
 # Fix NDK r29 libc++ <locale>: add #include <time.h> for struct tm
-bash "$(dirname "$0")/patch-locale-tm.sh" "$NDK_DIR"
+bash "$SCRIPT_DIR/patch-locale-tm.sh" "$NDK_DIR"
 
 
 git clone --depth 1 --branch v2.5.16.0 https://github.com/AcademySoftwareFoundation/OpenImageIO.git src
