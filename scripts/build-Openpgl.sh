@@ -64,7 +64,8 @@ cmake -B build \
   -DCMAKE_HAVE_LIBC_PTHREAD=ON \
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -DOPENPGL_BUILD_TESTS=OFF -DOPENPGL_BUILD_EXAMPLES=OFF \
-  -DOPENPGL_TBB_ROOT="$OUTPUT_DIR" 2>&1 | tail -20
+  -DOPENPGL_TBB_ROOT="$OUTPUT_DIR" \
+  -DTBB_DIR="$TBB_CMAKE_DIR" 2>&1 | tail -20
 cmake --build build -j$(nproc)
 cmake --install build
 
@@ -76,7 +77,8 @@ cmake -B build-static \
   -DCMAKE_HAVE_LIBC_PTHREAD=ON \
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -DOPENPGL_BUILD_TESTS=OFF -DOPENPGL_BUILD_EXAMPLES=OFF \
-  -DOPENPGL_TBB_ROOT="$OUTPUT_DIR" 2>&1 | tail -5
+  -DOPENPGL_TBB_ROOT="$OUTPUT_DIR" \
+  -DTBB_DIR="$TBB_CMAKE_DIR" 2>&1 | tail -5
 cmake --build build-static -j$(nproc)
 cmake --install build-static
 echo "Openpgl built"

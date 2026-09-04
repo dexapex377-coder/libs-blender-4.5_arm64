@@ -4,20 +4,20 @@ NDK_DIR="$1"; OUTPUT_DIR="$2"; BUILD_DIR="$3"; API_LEVEL="${4:-28}"
 mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 
 # Fix NDK r29 libc++ bug: nanosleep undeclared in __thread/support/pthread.h
-# Create wrapper toolchain that adds -include time.h (unoverridable by project CMAKE_CXX_FLAGS)
-WRAPPER="/tmp/android.toolchain.timefix.cmake"
-if [ ! -f "$WRAPPER" ]; then
-  cat > "$WRAPPER" << WEOF
-include("$NDK_DIR/build/cmake/android.toolchain.cmake")
-add_compile_options(-include time.h)
-WEOF
+# Patch NDK toolchain to add -include time.h to all C/C++ compilations
+TOOLCHAIN="$NDK_DIR/build/cmake/android.toolchain.cmake"
+if ! grep -q '_OBL_TIME_FIX' "$TOOLCHAIN" 2>/dev/null; then
+  echo '# _OBL_TIME_FIX' >> "$TOOLCHAIN"
+  echo 'string(APPEND CMAKE_C_FLAGS " -include time.h")' >> "$TOOLCHAIN"
+  echo 'string(APPEND CMAKE_CXX_FLAGS " -include time.h")' >> "$TOOLCHAIN"
+  echo "Patched NDK toolchain for -include time.h"
 fi
 
 git clone --depth 1 --branch v2.5.16.0 https://github.com/AcademySoftwareFoundation/OpenImageIO.git src
 cd src
 mkdir -p build
 cmake -B build \
-  -DCMAKE_TOOLCHAIN_FILE="/tmp/android.toolchain.timefix.cmake" \
+  -DCMAKE_TOOLCHAIN_FILE="$NDK_DIR/build/cmake/android.toolchain.cmake" \
   -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM="android-$API_LEVEL" \
   -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$OUTPUT_DIR" \
   -DCMAKE_PREFIX_PATH="$OUTPUT_DIR" \
@@ -42,7 +42,7 @@ cmake --build build -j$(nproc)
 cmake --install build
 # Also build static version
 cmake -B build-static \
-  -DCMAKE_TOOLCHAIN_FILE="/tmp/android.toolchain.timefix.cmake" \
+  -DCMAKE_TOOLCHAIN_FILE="$NDK_DIR/build/cmake/android.toolchain.cmake" \
   -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM="android-$API_LEVEL" \
   -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$OUTPUT_DIR" \
   -DCMAKE_PREFIX_PATH="$OUTPUT_DIR" \

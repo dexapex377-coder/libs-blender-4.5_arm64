@@ -160,8 +160,9 @@ sed -i 's|^add_subdirectory(COLLADAValidator)|# add_subdirectory(COLLADAValidato
 sed -i 's|^add_subdirectory(DAEValidator)|# add_subdirectory(DAEValidator) # skipped for Android|' CMakeLists.txt
 
 # Android Bionic doesn't have sys/timeb.h — create stub with ftime()
-mkdir -p "$NDK_DIR/sysroot/usr/include/sys"
-cat > "$NDK_DIR/sysroot/usr/include/sys/timeb.h" << 'TBEOF'
+SYSROOT_INC="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include"
+mkdir -p "$SYSROOT_INC/sys"
+cat > "$SYSROOT_INC/sys/timeb.h" << 'TBEOF'
 #ifndef _SYS_TIMEB_H_
 #define _SYS_TIMEB_H_
 #include <sys/time.h>
