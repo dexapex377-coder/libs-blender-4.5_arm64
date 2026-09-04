@@ -1,11 +1,19 @@
 #!/bin/bash
+# Build OpenImageIO for Android ARM64
 set -euo pipefail
 NDK_DIR="$1"; OUTPUT_DIR="$2"; BUILD_DIR="$3"; API_LEVEL="${4:-28}"
 mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 
 # Fix NDK r29 libc++ bug: nanosleep undeclared in __thread/support/pthread.h
-# Force-include <time.h> which declares nanosleep and struct tm
-NANOSLEEP_FIX="-include time.h"
+# Insert #include <time.h> right before line 198 (the nanosleep call) using sed
+PTHREAD_H="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/c++/v1/__thread/support/pthread.h"
+if [ -f "$PTHREAD_H" ]; then
+  if ! grep -q '_OBL_NANOSLEEP_FIX' "$PTHREAD_H"; then
+    sed -i '197a\// _OBL_NANOSLEEP_FIX: insert time.h for nanosleep decl\n#include <time.h>' "$PTHREAD_H" && echo "Patched $PTHREAD_H: inserted #include <time.h> before nanosleep call" || echo "sed failed"
+  else
+    echo "Already patched"
+  fi
+fi
 
 git clone --depth 1 --branch v2.5.16.0 https://github.com/AcademySoftwareFoundation/OpenImageIO.git src
 cd src
@@ -17,8 +25,6 @@ cmake -B build \
   -DCMAKE_PREFIX_PATH="$OUTPUT_DIR" \
   -DCMAKE_FIND_ROOT_PATH="$OUTPUT_DIR" \
   -DBUILD_SHARED_LIBS=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-  -DCMAKE_C_FLAGS="$NANOSLEEP_FIX" \
-  -DCMAKE_CXX_FLAGS="$NANOSLEEP_FIX" \
   -DOIIO_BUILD_TOOLS=OFF -DOIIO_BUILD_TESTS=OFF \
   -DUSE_PYTHON=OFF -DUSE_OPENGL=OFF -DUSE_QT=OFF \
   -DUSE_LIBHEIF=OFF -DUSE_LIBRAW=OFF -DUSE_OPENSSL=OFF \
@@ -44,8 +50,6 @@ cmake -B build-static \
   -DCMAKE_PREFIX_PATH="$OUTPUT_DIR" \
   -DCMAKE_FIND_ROOT_PATH="$OUTPUT_DIR" \
   -DBUILD_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-  -DCMAKE_C_FLAGS="$NANOSLEEP_FIX" \
-  -DCMAKE_CXX_FLAGS="$NANOSLEEP_FIX" \
   -DOIIO_BUILD_TOOLS=OFF -DOIIO_BUILD_TESTS=OFF \
   -DUSE_PYTHON=OFF -DUSE_OPENGL=OFF -DUSE_QT=OFF \
   -DUSE_LIBHEIF=OFF -DUSE_LIBRAW=OFF -DUSE_OPENSSL=OFF \
@@ -65,6 +69,3 @@ cmake --build build-static -j$(nproc)
 cmake --install build-static
 echo "OpenImageIO built"
 ls -lh "$OUTPUT_DIR/lib/"libOpenImageIO*
-cmake --build build-static -j$(nproc)
-cmake --install build-static
-echo "OpenImageIO built"
