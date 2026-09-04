@@ -159,6 +159,31 @@ cat Externals/LibXML/CMakeLists.txt | grep -i "schema\|XML_SCHEMAS" | head -5 ||
 sed -i 's|^add_subdirectory(COLLADAValidator)|# add_subdirectory(COLLADAValidator) # skipped for Android|' CMakeLists.txt
 sed -i 's|^add_subdirectory(DAEValidator)|# add_subdirectory(DAEValidator) # skipped for Android|' CMakeLists.txt
 
+# Android Bionic doesn't have sys/timeb.h — create stub with ftime()
+mkdir -p "$NDK_DIR/sysroot/usr/include/sys"
+cat > "$NDK_DIR/sysroot/usr/include/sys/timeb.h" << 'TBEOF'
+#ifndef _SYS_TIMEB_H_
+#define _SYS_TIMEB_H_
+#include <sys/time.h>
+struct timeb {
+    time_t time;
+    unsigned short millitm;
+    short timezone;
+    short dstflag;
+};
+static inline int ftime(struct timeb *tp) {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    tp->time = tv.tv_sec;
+    tp->millitm = (unsigned short)(tv.tv_usec / 1000);
+    tp->timezone = 0;
+    tp->dstflag = 0;
+    return 0;
+}
+#endif
+TBEOF
+echo "Created sys/timeb.h stub for Android"
+
 COMMON_FLAGS=(
   -DCMAKE_TOOLCHAIN_FILE="$NDK_DIR/build/cmake/android.toolchain.cmake"
   -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM="android-$API_LEVEL"

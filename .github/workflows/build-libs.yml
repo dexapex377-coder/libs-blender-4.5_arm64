@@ -92,7 +92,6 @@ jobs:
           - JeMalloc
           - OpenBlas
           - Boost
-          - Openpgl
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -169,6 +168,7 @@ jobs:
           - ICUC
           - ShaderC
           - MaterialX
+          - Openpgl
     steps:
       - name: Checkout
         uses: actions/checkout@v4
