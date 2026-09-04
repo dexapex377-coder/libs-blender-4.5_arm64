@@ -32,14 +32,6 @@ with open(h, 'w') as f: f.write(c)
 print(f"Patched {h}: added nanosleep decl before sleep_for")
 PYEOF
 
-# Fix NDK r29 libc++ <locale> incomplete 'tm': replace clang++ symlink with wrapper
-NDK_BIN="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin"
-rm -f "$NDK_BIN/clang++"
-cat > "$NDK_BIN/clang++" << 'WRAPPER_EOF'
-#!/bin/bash
-exec "$(dirname "$0")/clang-21" -include time.h "$@"
-WRAPPER_EOF
-chmod +x "$NDK_BIN/clang++"
 # Fix NDK r29 libc++ <locale>: add #include <time.h> for struct tm
 bash "$SCRIPT_DIR/patch-locale-tm.sh" "$NDK_DIR"
 
