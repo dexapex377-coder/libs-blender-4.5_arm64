@@ -4,35 +4,33 @@ NDK_DIR="$1"; OUTPUT_DIR="$2"; BUILD_DIR="$3"; API_LEVEL="${4:-28}"
 mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 
 # Fix NDK r29 libc++ bug: nanosleep undeclared in __thread/support/pthread.h
+# Declare nanosleep WITHOUT including <time.h> (which breaks struct tm in <locale>)
 PTHREAD_H="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/c++/v1/__thread/support/pthread.h"
 python3 << PYEOF
-import os
+import os, sys
 h = "$PTHREAD_H"
-if not os.path.exists(h):
-    print(f"pthread.h not found at {h}")
-    exit(0)
+if not h or not os.path.exists(h):
+    print(f"pthread.h not found: {h}")
+    sys.exit(0)
 with open(h) as f:
     c = f.read()
-if "use_of_declared_nanosleep" in c:
+if "_OBL_NANOSLEEP_DECL" in c:
     print("Already patched")
 else:
-    patch = '''// _OBL_NANOSLEEP_FIX: nanosleep undeclared in NDK r29 libc++ pthread.h
-#include <time.h>
-#ifndef _NANOSLEEP_DECLARED
-#define _NANOSLEEP_DECLARED
+    patch = """// _OBL_NANOSLEEP_DECL: nanosleep undeclared in NDK r29 libc++ pthread.h
 #ifdef __cplusplus
 extern "C" {
 #endif
-int nanosleep(const struct timespec *__rqtp, struct timespec *__rmtp) __attribute__((weak));
+struct timespec;
+int nanosleep(const struct timespec *__rqtp, struct timespec *__rmtp);
 #ifdef __cplusplus
 }
 #endif
-#endif
-'''
+"""
     c = patch + c
     with open(h, 'w') as f:
         f.write(c)
-    print(f"Patched {h}: added nanosleep declaration at top")
+    print(f"Patched {h}: added nanosleep declaration (no time.h include)")
 PYEOF
 
 git clone --depth 1 --branch v2.3.2 https://github.com/AcademySoftwareFoundation/OpenColorIO.git src
