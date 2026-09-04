@@ -5,17 +5,20 @@ NDK_DIR="$1"; OUTPUT_DIR="$2"; BUILD_DIR="$3"; API_LEVEL="${4:-28}"
 mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 
 # Fix NDK r29 libc++ bug: nanosleep undeclared in __thread/support/pthread.h
-# Wrap compiler: -D__ANDROID_API__ MUST come before -include time.h for nanosleep to be visible
-NDK_BIN="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin"
-for prog in clang clang++ clang-cpp; do
-  real="$NDK_BIN/$prog"
-  if [ -f "$real" ] && [ ! -f "${real}.real" ]; then
-    cp "$real" "${real}.real"
-    printf '#!/bin/bash\nexec "%s" -D__ANDROID_API__=%s -include time.h "$@"\n' "${real}.real" "$API_LEVEL" > "$real"
-    chmod +x "$real"
-    echo "Wrapped $real (API=$API_LEVEL)"
-  fi
-done
+# Insert C++ declaration right before the call (inside function body, no extern "C")
+PTHREAD_H="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/c++/v1/__thread/support/pthread.h"
+python3 -c "
+import sys
+h = sys.argv[1]
+with open(h) as f: content = f.read()
+if '_OBL_NANOSLEEP_FIX' in content: print('Already patched'); sys.exit(0)
+idx = content.find('while (nanosleep')
+if idx < 0: print('WARNING: not found'); sys.exit(0)
+# Insert plain C++ declaration — no extern C (illegal inside function body)
+content = content[:idx] + 'struct timespec;\nint nanosleep(const struct timespec *, struct timespec *);\n// _OBL_NANOSLEEP_FIX\n' + content[idx:]
+with open(h, 'w') as f: f.write(content)
+print(f'Patched {h}')
+" "$PTHREAD_H"
 
 git clone --depth 1 --branch v2.5.16.0 https://github.com/AcademySoftwareFoundation/OpenImageIO.git src
 cd src
@@ -44,7 +47,6 @@ cmake -B build \
   -DUSE_OPENVDB=OFF
 cmake --build build -j$(nproc)
 cmake --install build
-# Also build static version
 cmake -B build-static \
   -DCMAKE_TOOLCHAIN_FILE="$NDK_DIR/build/cmake/android.toolchain.cmake" \
   -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM="android-$API_LEVEL" \
