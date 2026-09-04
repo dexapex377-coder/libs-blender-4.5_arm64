@@ -4,8 +4,8 @@ set -euo pipefail
 NDK_DIR="$1"; OUTPUT_DIR="$2"; BUILD_DIR="$3"; API_LEVEL="${4:-28}"
 mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 
-# Fix NDK r29 bug: nanosleep undeclared in __thread/support/pthread.h
-# Replace nanosleep with usleep (declared in unistd.h, always available)
+# Fix NDK r29: nanosleep in global namespace not found from namespace std
+# Use ::nanosleep (global scope qualifier) instead of nanosleep
 PTHREAD_H="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/c++/v1/__thread/support/pthread.h"
 python3 << PYEOF
 import sys
@@ -13,17 +13,13 @@ h = "$PTHREAD_H"
 with open(h) as f: c = f.read()
 if "_OBL_SLEEP_FIX" in c:
     print("Already patched"); sys.exit(0)
-# Replace the nanosleep call with usleep
 old = 'while (nanosleep(&__ts, &__ts) == -1 && errno == EINTR)\n    ;'
-new = '''{
-    auto __us = static_cast<unsigned int>(__ns.count() / 1000);
-    if (__us > 0) usleep(__us);
-  }'''
+new = 'while (::nanosleep(&__ts, &__ts) == -1 && errno == EINTR)\n    ;'
 if old not in c:
-    print("WARNING: nanosleep call not found in pthread.h"); sys.exit(0)
+    print("WARNING: nanosleep call not found"); sys.exit(0)
 c = c.replace(old, '// _OBL_SLEEP_FIX\n' + new)
 with open(h, 'w') as f: f.write(c)
-print(f"Patched {h}: nanosleep -> usleep")
+print(f"Patched {h}: nanosleep -> ::nanosleep")
 PYEOF
 
 git clone --depth 1 --branch v2.5.16.0 https://github.com/AcademySoftwareFoundation/OpenImageIO.git src

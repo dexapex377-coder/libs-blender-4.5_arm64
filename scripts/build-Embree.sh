@@ -4,7 +4,7 @@ set -euo pipefail
 NDK_DIR="$1"; OUTPUT_DIR="$2"; BUILD_DIR="$3"; API_LEVEL="${4:-24}"
 mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 
-# Fix NDK r29 libc++ bug: nanosleep undeclared in __thread/support/pthread.h
+# Fix NDK r29: nanosleep in global namespace not found from namespace std
 PTHREAD_H="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/c++/v1/__thread/support/pthread.h"
 python3 << PYEOF
 import sys
@@ -13,15 +13,12 @@ with open(h) as f: c = f.read()
 if "_OBL_SLEEP_FIX" in c:
     print("Already patched"); sys.exit(0)
 old = 'while (nanosleep(&__ts, &__ts) == -1 && errno == EINTR)\n    ;'
-new = '''{
-    auto __us = static_cast<unsigned int>(__ns.count() / 1000);
-    if (__us > 0) usleep(__us);
-  }'''
+new = 'while (::nanosleep(&__ts, &__ts) == -1 && errno == EINTR)\n    ;'
 if old not in c:
-    print("WARNING: nanosleep call not found in pthread.h"); sys.exit(0)
+    print("WARNING: nanosleep call not found"); sys.exit(0)
 c = c.replace(old, '// _OBL_SLEEP_FIX\n' + new)
 with open(h, 'w') as f: f.write(c)
-print(f"Patched {h}: nanosleep -> usleep")
+print(f"Patched {h}: nanosleep -> ::nanosleep")
 PYEOF
 git clone --depth 1 --branch v4.3.3 https://github.com/embree/embree.git src
 cd src
