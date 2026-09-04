@@ -10,13 +10,22 @@ h = "$PTHREAD_H"
 with open(h) as f: c = f.read()
 if "_OBL_SLEEP_FIX" in c:
     print("Already patched"); sys.exit(0)
-old = 'while (nanosleep(&__ts, &__ts) == -1 && errno == EINTR)\n    ;'
-new = 'while (::nanosleep(&__ts, &__ts) == -1 && errno == EINTR)\n    ;'
+old = 'inline _LIBCPP_HIDE_FROM_ABI void __libcpp_thread_sleep_for(const chrono::nanoseconds& __ns) {'
+decl = """// _OBL_SLEEP_FIX: declare nanosleep (NDK r29 libc++ lookup bug)
+#ifdef __cplusplus
+extern "C" {
+#endif
+int nanosleep(const struct timespec*, struct timespec*);
+#ifdef __cplusplus
+}
+#endif
+
+"""
 if old not in c:
-    print("WARNING: nanosleep call not found"); sys.exit(0)
-c = c.replace(old, '// _OBL_SLEEP_FIX\n' + new)
+    print("WARNING: function not found"); sys.exit(0)
+c = c.replace(old, decl + old)
 with open(h, 'w') as f: f.write(c)
-print(f"Patched {h}: nanosleep -> ::nanosleep")
+print(f"Patched {h}: added nanosleep decl before sleep_for")
 PYEOF
 git clone --depth 1 --branch 1.8.5 https://github.com/alembic/alembic.git src
 cd src
