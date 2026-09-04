@@ -4,15 +4,38 @@ set -euo pipefail
 NDK_DIR="$1"; OUTPUT_DIR="$2"; BUILD_DIR="$3"; API_LEVEL="${4:-28}"
 mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
 
-# Fix NDK r29 libc++ bug: nanosleep undeclared in __thread/support/pthread.h
+# Fix NDK r29 libc++ bug
 PTHREAD_H="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/c++/v1/__thread/support/pthread.h"
-if [ -f "$PTHREAD_H" ]; then
-  if ! grep -q '_OBL_NANOSLEEP_FIX' "$PTHREAD_H"; then
-    sed -i '197a\// _OBL_NANOSLEEP_FIX: insert time.h for nanosleep decl\n#include <time.h>' "$PTHREAD_H" && echo "Patched $PTHREAD_H" || echo "sed failed"
-  else
-    echo "Already patched"
-  fi
-fi
+python3 -c "
+import sys
+h = sys.argv[1]
+with open(h) as f:
+    lines = f.readlines()
+if any('_OBL_NANOSLEEP_FIX' in l for l in lines):
+    print('Already patched'); sys.exit(0)
+target = -1
+for i, line in enumerate(lines):
+    if 'nanosleep(' in line:
+        target = i; break
+if target < 0:
+    print('WARNING: nanosleep not found'); sys.exit(0)
+decl = [
+    '// _OBL_NANOSLEEP_FIX\n',
+    '#ifdef __cplusplus\n',
+    'extern \"C\" {\n',
+    '#endif\n',
+    'int nanosleep(const struct timespec *, struct timespec *);\n',
+    '#ifdef __cplusplus\n',
+    '}\n',
+    '#endif\n',
+    '\n',
+]
+for j, l in enumerate(decl):
+    lines.insert(target + j, l)
+with open(h, 'w') as f:
+    f.writelines(lines)
+print(f'Patched {h}: inserted nanosleep decl before line {target+1}')
+" "$PTHREAD_H"
 
 git clone --depth 1 --branch v24.11 https://github.com/PixarAnimationStudios/OpenUSD.git src
 cd src
